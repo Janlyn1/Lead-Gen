@@ -189,11 +189,11 @@ export class SheetsService {
     ]);
     const normalizedUsername = normalizeIdentity(username);
 
-    if (extensionUrls.includes(tiktokUrl)) return true;
+    if (extensionUrls.some((url) => normalizeTikTokUrlLoose(url) === normalizeTikTokUrlLoose(tiktokUrl))) return true;
 
     return [...expandedRows, ...existingRows].some((row) => {
       const rowName = normalizeIdentity(row[0] || "");
-      const rowUrl = row[1] || row[8] || "";
+      const rowUrl = findTikTokUrlInRow(row) || row[1] || row[8] || "";
       const rowUrlUsername = normalizeIdentity(usernameFromTikTokUrl(rowUrl));
       return rowUrl === tiktokUrl ||
         normalizeTikTokUrlLoose(rowUrl) === normalizeTikTokUrlLoose(tiktokUrl) ||
@@ -276,4 +276,10 @@ function usernameFromTikTokUrl(value) {
 
 function normalizeIdentity(value) {
   return String(value || "").replace(/^@/, "").toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
+function findTikTokUrlInRow(row) {
+  return row
+    .map((cell) => String(cell || "").trim())
+    .find((cell) => /^https?:\/\/(?:www\.)?tiktok\.com\/@[^/?#\s]+/i.test(cell)) || "";
 }

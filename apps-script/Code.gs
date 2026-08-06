@@ -19,7 +19,7 @@ function doGet() {
     ok: true,
     name: "TikTok Lead Collector Apps Script",
     message: "Use POST requests from the backend for sheet operations.",
-    cleanup: "Run resetLeadSheets() once in Apps Script if Expand Link or Existing has old/trash columns."
+    cleanup: "Run cleanExpandLinkTrash() once if Expand Link has name-only trash rows."
   });
 }
 
@@ -34,6 +34,12 @@ function resetExpandLinkSheet() {
 
 function resetExistingSheet() {
   resetSheet_(EXISTING_SHEET, EXPAND_HEADERS);
+}
+
+function cleanExpandLinkTrash() {
+  ensureStructure_();
+  cleanupExpandLinkTrash_();
+  return "Expand Link cleaned.";
 }
 
 function doPost(e) {
@@ -101,6 +107,7 @@ function ensureStructure_() {
   ensureSheet_(EXTENSION_LINK_SHEET, EXTENSION_HEADERS);
   ensureSheet_(EXPAND_LINK_SHEET, EXPAND_HEADERS);
   ensureSheet_(EXISTING_SHEET, EXPAND_HEADERS);
+  cleanupExpandLinkTrash_();
 }
 
 function ensureSheet_(name, headers) {
@@ -115,11 +122,12 @@ function ensureSheet_(name, headers) {
   });
 
   if (!matches) {
-    if (sheet.getLastRow() > 1 && name === EXISTING_SHEET) {
-      return;
-    }
     headerRange.setValues([headers]);
     sheet.setFrozenRows(1);
+  }
+
+  if (name === EXPAND_LINK_SHEET || name === EXTENSION_LINK_SHEET) {
+    trimExtraColumns_(sheet, headers.length);
   }
 }
 
@@ -153,23 +161,60 @@ function getRows_(sheetName, width) {
   const sheet = getSheet_(sheetName);
   const lastRow = sheet.getLastRow();
   if (lastRow < 2) return [];
-  return sheet.getRange(2, 1, lastRow - 1, width).getValues();
+  const columnCount = Math.min(width, sheet.getMaxColumns());
+  return sheet.getRange(2, 1, lastRow - 1, columnCount).getValues();
 }
 
 function hasLead_(tiktokUrl, username) {
   const normalizedUsername = normalizeIdentity_(username);
   const extensionUrls = getRows_(EXTENSION_LINK_SHEET, 1).map(function(row) { return row[0]; });
-  if (extensionUrls.indexOf(tiktokUrl) !== -1) return true;
+  if (extensionUrls.some(function(url) {
+    return normalizeTikTokUrl_(url) === normalizeTikTokUrl_(tiktokUrl);
+  })) return true;
 
   const rows = getRows_(EXPAND_LINK_SHEET, 10).concat(getRows_(EXISTING_SHEET, 10));
   return rows.some(function(row) {
     const rowName = normalizeIdentity_(row[0] || "");
-    const rowUrl = row[1] || row[8] || "";
+    const rowUrl = findTikTokUrlInRow_(row) || row[1] || row[8] || "";
     const rowUrlUsername = normalizeIdentity_(usernameFromTikTokUrl_(rowUrl));
     return rowUrl === tiktokUrl ||
       normalizeTikTokUrl_(rowUrl) === normalizeTikTokUrl_(tiktokUrl) ||
       (normalizedUsername && (rowName === normalizedUsername || rowUrlUsername === normalizedUsername));
   });
+}
+
+function cleanupExpandLinkTrash_() {
+  const sheet = getSheet_(EXPAND_LINK_SHEET);
+  if (!sheet || sheet.getLastRow() < 2) return;
+
+  const width = Math.min(Math.max(sheet.getLastColumn(), EXPAND_HEADERS.length), sheet.getMaxColumns());
+  const rows = sheet.getRange(2, 1, sheet.getLastRow() - 1, width).getValues();
+
+  for (let index = rows.length - 1; index >= 0; index--) {
+    const row = rows[index];
+    const nonEmpty = row.filter(function(cell) { return String(cell || "").trim(); });
+    const hasTikTokUrl = Boolean(findTikTokUrlInRow_(row));
+    const hasProfileLink = Boolean(row[1] && String(row[1]).indexOf("tiktok.com/@") !== -1);
+    const looksLikeNameOnlyTrash = !hasTikTokUrl && !hasProfileLink && nonEmpty.length > 0 && nonEmpty.length <= 2;
+
+    if (looksLikeNameOnlyTrash) {
+      sheet.deleteRow(index + 2);
+    }
+  }
+}
+
+function trimExtraColumns_(sheet, width) {
+  const extraColumns = sheet.getMaxColumns() - width;
+  if (extraColumns > 0) {
+    sheet.deleteColumns(width + 1, extraColumns);
+  }
+}
+
+function findTikTokUrlInRow_(row) {
+  const match = row.map(function(cell) { return String(cell || "").trim(); }).filter(Boolean).find(function(cell) {
+    return /https?:\/\/(?:www\.)?tiktok\.com\/@[^/?#\s]+/i.test(cell);
+  });
+  return match || "";
 }
 
 function normalizeTikTokUrl_(value) {
