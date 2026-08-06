@@ -14,6 +14,14 @@ const EXPAND_HEADERS = [
   "Notes"
 ];
 
+function doGet() {
+  return json_({
+    ok: true,
+    name: "TikTok Lead Collector Apps Script",
+    message: "Use POST requests from the backend for sheet operations."
+  });
+}
+
 function doPost(e) {
   try {
     const payload = JSON.parse((e.postData && e.postData.contents) || "{}");
