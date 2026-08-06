@@ -173,15 +173,25 @@ function findFollowersText() {
   const exact = document.querySelector("[data-e2e='followers-count']");
   if (exact?.textContent?.trim()) return exact.textContent.trim();
 
+  const pageMatch = extractFollowerCountFromText(document.body?.innerText || "");
+  if (pageMatch) return pageMatch;
+
   const candidates = [...document.querySelectorAll("strong, span, div")]
     .map((node) => node.textContent?.trim() || "")
     .filter(Boolean);
 
   for (let index = 0; index < candidates.length; index += 1) {
-    if (/followers/i.test(candidates[index + 1] || "")) return candidates[index];
-    if (/followers/i.test(candidates[index])) return candidates[index];
+    const inlineMatch = extractFollowerCountFromText(candidates[index]);
+    if (inlineMatch) return inlineMatch;
+    if (/^followers$/i.test(candidates[index + 1] || "")) return candidates[index];
   }
   return "";
+}
+
+function extractFollowerCountFromText(text) {
+  const normalized = String(text || "").replace(/\s+/g, " ");
+  const match = normalized.match(/(\d[\d,]*(?:\.\d+)?\s*[KMB]?)\s*Followers\b/i);
+  return match ? match[1] : "";
 }
 
 function findBioText() {
@@ -430,4 +440,3 @@ function overlayCss() {
     .compact .line { margin-bottom: 6px; }
   `;
 }
-
