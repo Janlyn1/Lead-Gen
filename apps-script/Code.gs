@@ -120,9 +120,22 @@ function resetSheet_(name, headers) {
   }
 
   const sheet = ss.insertSheet(name);
+  ss.setActiveSheet(sheet);
+  ss.moveActiveSheet(1);
+  sheet.clear({ contentsOnly: false });
   sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
   sheet.setFrozenRows(1);
   sheet.autoResizeColumns(1, headers.length);
+
+  const extraColumns = sheet.getMaxColumns() - headers.length;
+  if (extraColumns > 0) {
+    sheet.deleteColumns(headers.length + 1, extraColumns);
+  }
+
+  const extraRows = sheet.getMaxRows() - 200;
+  if (extraRows > 0) {
+    sheet.deleteRows(201, extraRows);
+  }
 }
 
 function getRows_(sheetName, width) {
