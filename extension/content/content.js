@@ -10,6 +10,7 @@ const DEFAULT_SETTINGS = {
 const state = {
   settings: DEFAULT_SETTINGS,
   profile: null,
+  profileKey: "",
   duplicate: false,
   savedToday: 0,
   recentSaved: [],
@@ -132,23 +133,34 @@ async function detectAndRender() {
   const nextProfile = detectProfile();
   if (!nextProfile) {
     state.profile = null;
+    state.profileKey = "";
     state.duplicate = false;
+    state.statusText = "";
+    state.statusKind = "";
     render();
     return;
   }
 
-  const changed = !state.profile || state.profile.tiktokUrl !== nextProfile.tiktokUrl || state.profile.followers !== nextProfile.followers;
+  const nextProfileKey = `${nextProfile.tiktokUrl}:${nextProfile.followers}`;
+  const changed = state.profileKey !== nextProfileKey;
+  const creatorChanged = !state.profile || state.profile.tiktokUrl !== nextProfile.tiktokUrl;
+  const followerChanged = state.profile?.followers !== nextProfile.followers;
   state.profile = nextProfile;
+  state.profileKey = nextProfileKey;
 
   if (changed) {
     state.statusText = "";
     state.statusKind = "";
     state.duplicate = false;
-    checkDuplicate(nextProfile);
+    if (creatorChanged) {
+      checkDuplicate(nextProfile);
+    }
   }
 
   render();
-  maybeAutoSave();
+  if (creatorChanged || followerChanged) {
+    maybeAutoSave();
+  }
 }
 
 function detectProfile() {
