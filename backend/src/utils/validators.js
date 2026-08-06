@@ -11,6 +11,7 @@ export const tiktokUrlSchema = z
 export const saveLeadSchema = z.object({
   tiktokUrl: tiktokUrlSchema,
   username: z.string().trim().max(80).optional().default(""),
+  fullName: z.string().trim().max(120).optional().default(""),
   followers: z.union([z.number(), z.string()]).optional().default(""),
   bio: z.string().max(2000).optional().default(""),
   notes: z.string().max(500).optional().default("")
@@ -34,4 +35,3 @@ export function usernameFromUrl(value) {
     return "";
   }
 }
-

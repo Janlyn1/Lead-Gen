@@ -2,15 +2,13 @@ const EXTENSION_LINK_SHEET = "Extension Link";
 const EXPAND_LINK_SHEET = "Expand Link";
 const EXTENSION_HEADERS = ["TikTok URL"];
 const EXPAND_HEADERS = [
-  "Username",
-  "Followers",
-  "Email",
-  "Instagram",
-  "Facebook",
-  "YouTube",
+  "Full Name",
+  "TikTok Profile Link",
+  "Follower Count",
+  "Content Category",
   "Location",
-  "Category",
-  "TikTok URL",
+  "Business | Contact Email",
+  "Date",
   "Notes"
 ];
 
@@ -43,15 +41,13 @@ function doPost(e) {
       ensureStructure_();
       const lead = payload.lead || {};
       getSheet_(EXPAND_LINK_SHEET).appendRow([
-        lead.username || "",
-        lead.followers || "",
-        lead.email || "",
-        lead.instagram || "",
-        lead.facebook || "",
-        lead.youtube || "",
-        lead.location || "",
-        Array.isArray(lead.category) ? lead.category.join(", ") : lead.category || "",
+        lead.fullName || lead.username || "",
         lead.tiktokUrl || "",
+        lead.followers || "",
+        Array.isArray(lead.category) ? lead.category.join(", ") : lead.category || "",
+        lead.location || "",
+        lead.email || "",
+        lead.date || Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyy-MM-dd"),
         lead.notes || ""
       ]);
       return json_({ ok: true });
@@ -65,7 +61,7 @@ function doPost(e) {
 
     if (action === "getExpandedRows") {
       ensureStructure_();
-      return json_({ ok: true, rows: getRows_(EXPAND_LINK_SHEET, 10) });
+      return json_({ ok: true, rows: getRows_(EXPAND_LINK_SHEET, 8) });
     }
 
     if (action === "hasLead") {
@@ -115,7 +111,7 @@ function hasLead_(tiktokUrl, username) {
 
   return getRows_(EXPAND_LINK_SHEET, 10).some(function(row) {
     const rowUsername = String(row[0] || "").replace(/^@/, "").toLowerCase();
-    return row[8] === tiktokUrl || (normalizedUsername && rowUsername === normalizedUsername);
+    return row[1] === tiktokUrl || row[8] === tiktokUrl || (normalizedUsername && rowUsername === normalizedUsername);
   });
 }
 

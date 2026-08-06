@@ -30,8 +30,8 @@ The backend creates or repairs these sheets:
 
 `Expand Link`
 
-| Username | Followers | Email | Instagram | Facebook | YouTube | Location | Category | TikTok URL | Notes |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Full Name | TikTok Profile Link | Follower Count | Content Category | Location | Business \| Contact Email | Date | Notes |
+| --- | --- | --- | --- | --- | --- | --- | --- |
 
 ## Setup
 

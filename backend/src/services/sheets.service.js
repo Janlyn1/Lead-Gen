@@ -5,15 +5,13 @@ const EXTENSION_LINK_SHEET = "Extension Link";
 const EXPAND_LINK_SHEET = "Expand Link";
 const EXTENSION_HEADERS = ["TikTok URL"];
 const EXPAND_HEADERS = [
-  "Username",
-  "Followers",
-  "Email",
-  "Instagram",
-  "Facebook",
-  "YouTube",
+  "Full Name",
+  "TikTok Profile Link",
+  "Follower Count",
+  "Content Category",
   "Location",
-  "Category",
-  "TikTok URL",
+  "Business | Contact Email",
+  "Date",
   "Notes"
 ];
 
@@ -121,21 +119,19 @@ export class SheetsService {
     const sheets = await this.getClient();
     await sheets.spreadsheets.values.append({
       spreadsheetId: env.SPREADSHEET_ID,
-      range: `'${EXPAND_LINK_SHEET}'!A:J`,
+      range: `'${EXPAND_LINK_SHEET}'!A:H`,
       valueInputOption: "RAW",
       insertDataOption: "INSERT_ROWS",
       requestBody: {
         values: [
           [
-            lead.username || "",
-            lead.followers || "",
-            lead.email || "",
-            lead.instagram || "",
-            lead.facebook || "",
-            lead.youtube || "",
-            lead.location || "",
-            Array.isArray(lead.category) ? lead.category.join(", ") : lead.category || "",
+            lead.fullName || lead.username || "",
             lead.tiktokUrl,
+            lead.followers || "",
+            Array.isArray(lead.category) ? lead.category.join(", ") : lead.category || "",
+            lead.location || "",
+            lead.email || "",
+            lead.date || new Date().toISOString().slice(0, 10),
             lead.notes || ""
           ]
         ]
@@ -159,12 +155,12 @@ export class SheetsService {
       return response.rows || [];
     }
 
-    return this.getValues(`'${EXPAND_LINK_SHEET}'!A2:J`);
+    return this.getValues(`'${EXPAND_LINK_SHEET}'!A2:H`);
   }
 
   async getExpandedUrls() {
     const rows = await this.getExpandedRows();
-    return rows.map((row) => row[8]).filter(Boolean);
+    return rows.map((row) => row[1] || row[8]).filter(Boolean);
   }
 
   async hasLead(tiktokUrl, username = "") {
@@ -180,7 +176,7 @@ export class SheetsService {
 
     return expandedRows.some((row) => {
       const rowUsername = String(row[0] || "").replace(/^@/, "").toLowerCase();
-      return row[8] === tiktokUrl || (normalizedUsername && rowUsername === normalizedUsername);
+      return row[1] === tiktokUrl || row[8] === tiktokUrl || (normalizedUsername && rowUsername === normalizedUsername);
     });
   }
 

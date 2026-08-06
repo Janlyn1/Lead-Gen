@@ -169,16 +169,30 @@ function detectProfile() {
 
   const username = match[1];
   const tiktokUrl = `https://www.tiktok.com/@${username}`;
+  const fullName = findFullName(username);
   const followersText = findFollowersText(username);
   const followers = parseFollowers(followersText);
   const bio = findBioText();
 
   return {
     username,
+    fullName,
     tiktokUrl,
     followers,
     bio
   };
+}
+
+function findFullName(username) {
+  const text = getTikTokPageText().replace(/\s+/g, " ");
+  const usernamePattern = username
+    .split(/[._-]+/)
+    .filter(Boolean)
+    .map(escapeRegex)
+    .join("[\\s._-]+");
+  const match = text.match(new RegExp(`([^\\n|]{2,80}?)\\s+@?${usernamePattern}\\s+\\d[\\d,]*(?:\\.\\d+)?\\s*[KMB]?\\s*Followers`, "i"));
+  if (!match?.[1]) return username;
+  return match[1].replace(/Creator|Comments|Related/gi, "").trim() || username;
 }
 
 function findFollowersText(username) {

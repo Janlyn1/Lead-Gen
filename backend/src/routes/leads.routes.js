@@ -31,6 +31,7 @@ leadsRouter.post("/leads", async (req, res, next) => {
     const snapshot = {
       tiktokUrl,
       username,
+      fullName: parsed.fullName || username,
       followers,
       bio: parsed.bio,
       notes: parsed.notes
@@ -86,4 +87,3 @@ leadsRouter.post("/worker/run", async (req, res, next) => {
     next(error);
   }
 });
-

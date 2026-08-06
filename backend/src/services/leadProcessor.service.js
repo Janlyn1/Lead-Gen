@@ -66,6 +66,7 @@ export class LeadProcessor {
 
     const followersQualified = isQualified(followers);
     const expandedLead = {
+      fullName: fetched.fullName || fetched.username || usernameFromUrl(tiktokUrl),
       username: fetched.username || usernameFromUrl(tiktokUrl),
       followers,
       email: parsed.email,
@@ -76,6 +77,7 @@ export class LeadProcessor {
       category: parsed.category,
       leadScore: calculateLeadScore(parsed, followersQualified),
       tiktokUrl,
+      date: new Date().toISOString().slice(0, 10),
       notes: fetched.notes || ""
     };
 
@@ -108,4 +110,3 @@ async function safeGeminiParse(bio) {
 }
 
 export const leadProcessor = new LeadProcessor();
-
