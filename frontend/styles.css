@@ -231,6 +231,62 @@ h1 {
   padding: 0 0 40px;
 }
 
+.extension-view {
+  display: grid;
+  grid-template-columns: minmax(0, 0.95fr) minmax(260px, 0.55fr);
+  gap: 32px;
+  align-items: center;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  margin: 0 0 54px;
+  padding: clamp(24px, 4vw, 42px);
+  background:
+    linear-gradient(135deg, rgba(91, 224, 187, 0.09), transparent 45%),
+    linear-gradient(315deg, rgba(165, 108, 255, 0.12), transparent 48%),
+    var(--panel);
+  backdrop-filter: blur(16px);
+}
+
+.extension-view__copy h2 {
+  margin: 0;
+  max-width: 660px;
+  font-size: clamp(2.1rem, 5vw, 4.4rem);
+  line-height: 0.95;
+}
+
+.extension-view__copy p {
+  max-width: 680px;
+  color: var(--muted);
+  font-size: 1.05rem;
+  line-height: 1.7;
+}
+
+.extension-view__copy ul {
+  display: grid;
+  gap: 8px;
+  margin-top: 18px;
+}
+
+.extension-view__image {
+  margin: 0;
+}
+
+.extension-view__image img {
+  display: block;
+  width: min(100%, 330px);
+  margin-left: auto;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  box-shadow: var(--shadow);
+}
+
+.extension-view__image figcaption {
+  margin-top: 12px;
+  color: var(--muted);
+  font-size: 0.92rem;
+  text-align: right;
+}
+
 article {
   min-height: 220px;
   border: 1px solid var(--line);
@@ -421,6 +477,18 @@ h3 {
 
   .details {
     grid-template-columns: 1fr;
+  }
+
+  .extension-view {
+    grid-template-columns: 1fr;
+  }
+
+  .extension-view__image img {
+    margin: 0;
+  }
+
+  .extension-view__image figcaption {
+    text-align: left;
   }
 
   .step {
