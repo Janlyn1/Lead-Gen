@@ -33,6 +33,13 @@ The backend creates or repairs these sheets:
 | Full Name | TikTok Profile Link | Follower Count | Content Category | Location | Business \| Contact Email | Date | Notes |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 
+`Existing`
+
+Use this sheet for creators you already collected before using the extension. Paste old creators here with the same columns as `Expand Link`. Duplicate detection checks this sheet too, so an existing creator cannot be saved again.
+
+| Full Name | TikTok Profile Link | Follower Count | Content Category | Location | Business \| Contact Email | Date | Notes |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+
 ## Setup
 
 1. Install backend dependencies:

@@ -3,6 +3,7 @@ import { env, hasAppsScriptCredentials, hasGoogleCredentials } from "../config/e
 
 const EXTENSION_LINK_SHEET = "Extension Link";
 const EXPAND_LINK_SHEET = "Expand Link";
+const EXISTING_SHEET = "Existing";
 const EXTENSION_HEADERS = ["TikTok URL"];
 const EXPAND_HEADERS = [
   "Full Name",
@@ -60,7 +61,7 @@ export class SheetsService {
     const metadata = await sheets.spreadsheets.get({ spreadsheetId: env.SPREADSHEET_ID });
     const existingTitles = new Set(metadata.data.sheets.map((sheet) => sheet.properties.title));
 
-    const addSheetRequests = [EXTENSION_LINK_SHEET, EXPAND_LINK_SHEET]
+    const addSheetRequests = [EXTENSION_LINK_SHEET, EXPAND_LINK_SHEET, EXISTING_SHEET]
       .filter((title) => !existingTitles.has(title))
       .map((title) => ({ addSheet: { properties: { title } } }));
 
@@ -73,6 +74,7 @@ export class SheetsService {
 
     await this.ensureHeaders(EXTENSION_LINK_SHEET, EXTENSION_HEADERS);
     await this.ensureHeaders(EXPAND_LINK_SHEET, EXPAND_HEADERS);
+    await this.ensureHeaders(EXISTING_SHEET, EXPAND_HEADERS);
   }
 
   async ensureHeaders(sheetName, headers) {
@@ -158,6 +160,15 @@ export class SheetsService {
     return this.getValues(`'${EXPAND_LINK_SHEET}'!A2:H`);
   }
 
+  async getExistingRows() {
+    if (hasAppsScriptCredentials) {
+      const response = await this.requestAppsScript("getExistingRows");
+      return response.rows || [];
+    }
+
+    return this.getValues(`'${EXISTING_SHEET}'!A2:J`);
+  }
+
   async getExpandedUrls() {
     const rows = await this.getExpandedRows();
     return rows.map((row) => row[1] || row[8]).filter(Boolean);
@@ -169,14 +180,22 @@ export class SheetsService {
       return Boolean(response.duplicate);
     }
 
-    const [extensionUrls, expandedRows] = await Promise.all([this.getExtensionUrls(), this.getExpandedRows()]);
-    const normalizedUsername = String(username || "").replace(/^@/, "").toLowerCase();
+    const [extensionUrls, expandedRows, existingRows] = await Promise.all([
+      this.getExtensionUrls(),
+      this.getExpandedRows(),
+      this.getExistingRows()
+    ]);
+    const normalizedUsername = normalizeIdentity(username);
 
     if (extensionUrls.includes(tiktokUrl)) return true;
 
-    return expandedRows.some((row) => {
-      const rowUsername = String(row[0] || "").replace(/^@/, "").toLowerCase();
-      return row[1] === tiktokUrl || row[8] === tiktokUrl || (normalizedUsername && rowUsername === normalizedUsername);
+    return [...expandedRows, ...existingRows].some((row) => {
+      const rowName = normalizeIdentity(row[0] || "");
+      const rowUrl = row[1] || row[8] || "";
+      const rowUrlUsername = normalizeIdentity(usernameFromTikTokUrl(rowUrl));
+      return rowUrl === tiktokUrl ||
+        normalizeTikTokUrlLoose(rowUrl) === normalizeTikTokUrlLoose(tiktokUrl) ||
+        (normalizedUsername && (rowName === normalizedUsername || rowUrlUsername === normalizedUsername));
     });
   }
 
@@ -243,3 +262,16 @@ function columnLetter(index) {
 }
 
 export const sheetsService = new SheetsService();
+
+function normalizeTikTokUrlLoose(value) {
+  return String(value || "").trim().replace(/\/$/, "").replace(/^http:\/\//, "https://").replace("https://tiktok.com/", "https://www.tiktok.com/");
+}
+
+function usernameFromTikTokUrl(value) {
+  const match = String(value || "").match(/\/@([^/?#]+)/);
+  return match ? match[1] : "";
+}
+
+function normalizeIdentity(value) {
+  return String(value || "").replace(/^@/, "").toLowerCase().replace(/[^a-z0-9]/g, "");
+}

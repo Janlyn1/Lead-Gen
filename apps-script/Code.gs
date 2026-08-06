@@ -1,5 +1,6 @@
 const EXTENSION_LINK_SHEET = "Extension Link";
 const EXPAND_LINK_SHEET = "Expand Link";
+const EXISTING_SHEET = "Existing";
 const EXTENSION_HEADERS = ["TikTok URL"];
 const EXPAND_HEADERS = [
   "Full Name",
@@ -64,6 +65,11 @@ function doPost(e) {
       return json_({ ok: true, rows: getRows_(EXPAND_LINK_SHEET, 8) });
     }
 
+    if (action === "getExistingRows") {
+      ensureStructure_();
+      return json_({ ok: true, rows: getRows_(EXISTING_SHEET, 10) });
+    }
+
     if (action === "hasLead") {
       ensureStructure_();
       return json_({ ok: true, duplicate: hasLead_(payload.tiktokUrl || "", payload.username || "") });
@@ -78,6 +84,7 @@ function doPost(e) {
 function ensureStructure_() {
   ensureSheet_(EXTENSION_LINK_SHEET, EXTENSION_HEADERS);
   ensureSheet_(EXPAND_LINK_SHEET, EXPAND_HEADERS);
+  ensureSheet_(EXISTING_SHEET, EXPAND_HEADERS);
 }
 
 function ensureSheet_(name, headers) {
@@ -105,14 +112,32 @@ function getRows_(sheetName, width) {
 }
 
 function hasLead_(tiktokUrl, username) {
-  const normalizedUsername = String(username || "").replace(/^@/, "").toLowerCase();
+  const normalizedUsername = normalizeIdentity_(username);
   const extensionUrls = getRows_(EXTENSION_LINK_SHEET, 1).map(function(row) { return row[0]; });
   if (extensionUrls.indexOf(tiktokUrl) !== -1) return true;
 
-  return getRows_(EXPAND_LINK_SHEET, 10).some(function(row) {
-    const rowUsername = String(row[0] || "").replace(/^@/, "").toLowerCase();
-    return row[1] === tiktokUrl || row[8] === tiktokUrl || (normalizedUsername && rowUsername === normalizedUsername);
+  const rows = getRows_(EXPAND_LINK_SHEET, 10).concat(getRows_(EXISTING_SHEET, 10));
+  return rows.some(function(row) {
+    const rowName = normalizeIdentity_(row[0] || "");
+    const rowUrl = row[1] || row[8] || "";
+    const rowUrlUsername = normalizeIdentity_(usernameFromTikTokUrl_(rowUrl));
+    return rowUrl === tiktokUrl ||
+      normalizeTikTokUrl_(rowUrl) === normalizeTikTokUrl_(tiktokUrl) ||
+      (normalizedUsername && (rowName === normalizedUsername || rowUrlUsername === normalizedUsername));
   });
+}
+
+function normalizeTikTokUrl_(value) {
+  return String(value || "").trim().replace(/\/$/, "").replace(/^http:\/\//, "https://").replace("https://tiktok.com/", "https://www.tiktok.com/");
+}
+
+function usernameFromTikTokUrl_(value) {
+  const match = String(value || "").match(/\/@([^/?#]+)/);
+  return match ? match[1] : "";
+}
+
+function normalizeIdentity_(value) {
+  return String(value || "").replace(/^@/, "").toLowerCase().replace(/[^a-z0-9]/g, "");
 }
 
 function getSheet_(name) {
