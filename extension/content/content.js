@@ -173,6 +173,12 @@ function findFollowersText(username) {
   const exact = document.querySelector("[data-e2e='followers-count']");
   if (exact?.textContent?.trim()) return exact.textContent.trim();
 
+  const visibleMatch = findVisibleFollowersForUsername(username);
+  if (visibleMatch) return visibleMatch;
+
+  const bodyMatch = bestFollowerCountFromText(document.body?.innerText || "", { preferSmall: true });
+  if (bodyMatch) return bodyMatch;
+
   const stateMatch = findFollowersInPageState(username);
   if (stateMatch) return stateMatch;
 
@@ -181,12 +187,21 @@ function findFollowersText(username) {
     .filter(Boolean);
 
   for (let index = 0; index < candidates.length; index += 1) {
-    const inlineMatch = bestFollowerCountFromText(candidates[index]);
+    const inlineMatch = bestFollowerCountFromText(candidates[index], { preferSmall: true });
     if (inlineMatch) return inlineMatch;
     if (/^followers$/i.test(candidates[index + 1] || "")) return candidates[index];
   }
 
-  return bestFollowerCountFromText(document.body?.innerText || "");
+  return "";
+}
+
+function findVisibleFollowersForUsername(username) {
+  const normalizedText = String(document.body?.innerText || "").replace(/\s+/g, " ");
+  const usernameIndex = normalizedText.toLowerCase().indexOf(String(username || "").toLowerCase());
+  if (usernameIndex === -1) return "";
+
+  const nearbyText = normalizedText.slice(usernameIndex, usernameIndex + 260);
+  return bestFollowerCountFromText(nearbyText, { preferSmall: true });
 }
 
 function findFollowersInPageState(username) {
@@ -209,14 +224,16 @@ function findFollowersInPageState(username) {
   return "";
 }
 
-function bestFollowerCountFromText(text) {
+function bestFollowerCountFromText(text, options = {}) {
   const normalized = String(text || "").replace(/\s+/g, " ");
   const matches = [...normalized.matchAll(/(\d[\d,]*(?:\.\d+)?\s*[KMB]?)\s*Followers\b/gi)];
   if (!matches.length) return "";
 
-  return matches
-    .map((match) => match[1])
-    .sort((a, b) => parseFollowers(b) - parseFollowers(a))[0];
+  const counts = matches.map((match) => match[1]);
+  if (options.preferSmall) {
+    return counts.sort((a, b) => parseFollowers(a) - parseFollowers(b))[0];
+  }
+  return counts.sort((a, b) => parseFollowers(b) - parseFollowers(a))[0];
 }
 
 function escapeRegex(value) {
