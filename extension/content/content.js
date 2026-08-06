@@ -202,10 +202,15 @@ function findFollowersText(username) {
 
 function findVisibleFollowerElementText(username) {
   const normalizedUsername = normalizeToken(username);
+  const usernameParts = String(username || "")
+    .split(/[._-]+/)
+    .map(normalizeToken)
+    .filter(Boolean);
   const candidates = [...document.body.querySelectorAll("a, section, article, div, span, strong")]
     .filter((node) => !host.contains(node) && isVisible(node))
     .map((node) => ({
       node,
+      rect: node.getBoundingClientRect(),
       text: String(node.innerText || node.textContent || "").replace(/\s+/g, " ").trim()
     }))
     .filter((item) => item.text.includes("Followers") && item.text.length <= 320)
@@ -217,22 +222,23 @@ function findVisibleFollowerElementText(username) {
     .filter((item) => item.followers);
 
   const usernameMatches = candidates
-    .filter((item) => item.normalizedText.includes(normalizedUsername) || normalizedUsername.includes(item.normalizedText.slice(0, 8)))
-    .sort(sortVisibleCandidate);
+    .filter((item) => {
+      if (item.normalizedText.includes(normalizedUsername)) return true;
+      return usernameParts.length >= 2 && usernameParts.every((part) => item.normalizedText.includes(part.slice(0, 4)));
+    })
+    .sort(sortByCreatorPanelPosition);
 
   if (usernameMatches[0]) return usernameMatches[0].followers;
 
   const rightSideMatches = candidates
-    .filter((item) => item.node.getBoundingClientRect().left > window.innerWidth * 0.55)
-    .sort(sortVisibleCandidate);
+    .filter((item) => item.rect.left > window.innerWidth * 0.55)
+    .sort(sortByCreatorPanelPosition);
 
-  return rightSideMatches[0]?.followers || candidates.sort(sortVisibleCandidate)[0]?.followers || "";
+  return rightSideMatches[0]?.followers || "";
 }
 
-function sortVisibleCandidate(a, b) {
-  const aRect = a.node.getBoundingClientRect();
-  const bRect = b.node.getBoundingClientRect();
-  return a.text.length - b.text.length || aRect.top - bRect.top || bRect.left - aRect.left;
+function sortByCreatorPanelPosition(a, b) {
+  return a.rect.top - b.rect.top || b.rect.left - a.rect.left || a.text.length - b.text.length;
 }
 
 function isVisible(node) {
