@@ -176,7 +176,7 @@ function findFollowersText(username) {
   const visibleMatch = findVisibleFollowersForUsername(username);
   if (visibleMatch) return visibleMatch;
 
-  const bodyMatch = bestFollowerCountFromText(document.body?.innerText || "", { preferSmall: true });
+  const bodyMatch = bestFollowerCountFromText(document.body?.innerText || "");
   if (bodyMatch) return bodyMatch;
 
   const stateMatch = findFollowersInPageState(username);
@@ -187,7 +187,7 @@ function findFollowersText(username) {
     .filter(Boolean);
 
   for (let index = 0; index < candidates.length; index += 1) {
-    const inlineMatch = bestFollowerCountFromText(candidates[index], { preferSmall: true });
+    const inlineMatch = bestFollowerCountFromText(candidates[index]);
     if (inlineMatch) return inlineMatch;
     if (/^followers$/i.test(candidates[index + 1] || "")) return candidates[index];
   }
@@ -197,11 +197,16 @@ function findFollowersText(username) {
 
 function findVisibleFollowersForUsername(username) {
   const normalizedText = String(document.body?.innerText || "").replace(/\s+/g, " ");
+  const escapedUsername = escapeRegex(username);
+  const directPattern = new RegExp(`${escapedUsername}[\\s\\S]{0,120}?(\\d[\\d,]*(?:\\.\\d+)?\\s*[KMB]?)\\s*Followers\\b`, "i");
+  const directMatch = normalizedText.match(directPattern);
+  if (directMatch?.[1]) return directMatch[1];
+
   const usernameIndex = normalizedText.toLowerCase().indexOf(String(username || "").toLowerCase());
   if (usernameIndex === -1) return "";
 
-  const nearbyText = normalizedText.slice(usernameIndex, usernameIndex + 260);
-  return bestFollowerCountFromText(nearbyText, { preferSmall: true });
+  const nearbyText = normalizedText.slice(usernameIndex, usernameIndex + 180);
+  return bestFollowerCountFromText(nearbyText);
 }
 
 function findFollowersInPageState(username) {
