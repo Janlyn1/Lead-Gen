@@ -58,9 +58,35 @@ Copy-Item ..\.env.example .env
 
 Keep the Gemini API key in `GEMINI_API_KEY`. Do not put real keys in source control.
 
-4. Configure Google Sheets credentials.
+4. Configure Google Sheets access.
 
-Recommended: create a Google Cloud service account, enable Google Sheets API for the project, download the JSON key as `backend/service-account.json`, then share the Google Sheet with the service account email as Editor.
+Recommended if service account key creation is blocked: use the included Apps Script Web App.
+
+1. Open the Google Sheet.
+2. Click Extensions > Apps Script.
+3. Paste the contents of `apps-script/Code.gs`.
+4. Click Project Settings.
+5. Add Script properties:
+
+```text
+WEBHOOK_SECRET=make-a-long-random-secret
+SPREADSHEET_ID=1Rerd3RwZfpt4qcuKHvOjAXFG0W-P69QmGfyBY-1zVq0
+```
+
+6. Click Deploy > New deployment.
+7. Select type: Web app.
+8. Execute as: Me.
+9. Who has access: Anyone.
+10. Click Deploy, approve permissions, and copy the Web app URL ending in `/exec`.
+
+Then set these backend environment variables:
+
+```text
+APPS_SCRIPT_WEB_APP_URL=https://script.google.com/macros/s/.../exec
+APPS_SCRIPT_SECRET=the-same-secret-from-WEBHOOK_SECRET
+```
+
+Alternative: create a Google Cloud service account, enable Google Sheets API for the project, download the JSON key as `backend/service-account.json`, then share the Google Sheet with the service account email as Editor.
 
 The provided Sheet ID is already placed in `.env.example`:
 
@@ -149,7 +175,8 @@ Backend deployment options:
 - Render, Railway, Fly.io, Cloud Run, or any Node.js host
 - Set all `.env` values as hosting secrets
 - Set `CORS_ORIGIN` to your Chrome extension origin after loading the extension
-- Keep `GOOGLE_APPLICATION_CREDENTIALS` as a mounted secret file or use `GOOGLE_SERVICE_ACCOUNT_EMAIL` and `GOOGLE_PRIVATE_KEY`
+- Prefer `APPS_SCRIPT_WEB_APP_URL` and `APPS_SCRIPT_SECRET` when service account keys are blocked
+- Or keep `GOOGLE_APPLICATION_CREDENTIALS` as a mounted secret file or use `GOOGLE_SERVICE_ACCOUNT_EMAIL` and `GOOGLE_PRIVATE_KEY`
 
 Chrome extension deployment:
 
@@ -192,4 +219,3 @@ References:
 - Google Sheets API append documentation: https://developers.google.com/workspace/sheets/api/reference/rest/v4/spreadsheets.values/append
 - Google Sheets Node.js quickstart: https://developers.google.com/workspace/sheets/api/quickstart/nodejs
 - Gemini API JavaScript SDK documentation: https://ai.google.dev/gemini-api/docs/generate-content/get-started
-

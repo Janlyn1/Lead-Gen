@@ -1,5 +1,5 @@
 import { google } from "googleapis";
-import { env, hasGoogleCredentials } from "../config/env.js";
+import { env, hasAppsScriptCredentials, hasGoogleCredentials } from "../config/env.js";
 
 const EXTENSION_LINK_SHEET = "Extension Link";
 const EXPAND_LINK_SHEET = "Expand Link";
@@ -23,8 +23,14 @@ export class SheetsService {
   }
 
   async getClient() {
+    if (hasAppsScriptCredentials) {
+      const error = new Error("Google client is not used when APPS_SCRIPT_WEB_APP_URL is configured.");
+      error.statusCode = 500;
+      throw error;
+    }
+
     if (!hasGoogleCredentials) {
-      const error = new Error("Google Sheets credentials are not configured.");
+      const error = new Error("Google Sheets credentials are not configured. Set APPS_SCRIPT_WEB_APP_URL or service account credentials.");
       error.statusCode = 503;
       throw error;
     }
@@ -47,6 +53,11 @@ export class SheetsService {
   }
 
   async ensureStructure() {
+    if (hasAppsScriptCredentials) {
+      await this.requestAppsScript("ensureStructure");
+      return;
+    }
+
     const sheets = await this.getClient();
     const metadata = await sheets.spreadsheets.get({ spreadsheetId: env.SPREADSHEET_ID });
     const existingTitles = new Set(metadata.data.sheets.map((sheet) => sheet.properties.title));
@@ -86,6 +97,11 @@ export class SheetsService {
   }
 
   async appendExtensionLink(tiktokUrl) {
+    if (hasAppsScriptCredentials) {
+      await this.requestAppsScript("appendExtensionLink", { tiktokUrl });
+      return;
+    }
+
     const sheets = await this.getClient();
     await sheets.spreadsheets.values.append({
       spreadsheetId: env.SPREADSHEET_ID,
@@ -97,6 +113,11 @@ export class SheetsService {
   }
 
   async appendExpandedLead(lead) {
+    if (hasAppsScriptCredentials) {
+      await this.requestAppsScript("appendExpandedLead", { lead });
+      return;
+    }
+
     const sheets = await this.getClient();
     await sheets.spreadsheets.values.append({
       spreadsheetId: env.SPREADSHEET_ID,
@@ -123,11 +144,21 @@ export class SheetsService {
   }
 
   async getExtensionUrls() {
+    if (hasAppsScriptCredentials) {
+      const response = await this.requestAppsScript("getExtensionUrls");
+      return response.urls || [];
+    }
+
     const rows = await this.getValues(`'${EXTENSION_LINK_SHEET}'!A2:A`);
     return rows.map((row) => row[0]).filter(Boolean);
   }
 
   async getExpandedRows() {
+    if (hasAppsScriptCredentials) {
+      const response = await this.requestAppsScript("getExpandedRows");
+      return response.rows || [];
+    }
+
     return this.getValues(`'${EXPAND_LINK_SHEET}'!A2:J`);
   }
 
@@ -137,6 +168,11 @@ export class SheetsService {
   }
 
   async hasLead(tiktokUrl, username = "") {
+    if (hasAppsScriptCredentials) {
+      const response = await this.requestAppsScript("hasLead", { tiktokUrl, username });
+      return Boolean(response.duplicate);
+    }
+
     const [extensionUrls, expandedRows] = await Promise.all([this.getExtensionUrls(), this.getExpandedRows()]);
     const normalizedUsername = String(username || "").replace(/^@/, "").toLowerCase();
 
@@ -161,6 +197,42 @@ export class SheetsService {
       throw error;
     }
   }
+
+  async requestAppsScript(action, payload = {}) {
+    if (!env.APPS_SCRIPT_SECRET) {
+      const error = new Error("APPS_SCRIPT_SECRET is required when APPS_SCRIPT_WEB_APP_URL is configured.");
+      error.statusCode = 503;
+      throw error;
+    }
+
+    const response = await fetch(env.APPS_SCRIPT_WEB_APP_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        action,
+        secret: env.APPS_SCRIPT_SECRET,
+        ...payload
+      })
+    });
+
+    const text = await response.text();
+    let data = {};
+    try {
+      data = JSON.parse(text);
+    } catch {
+      const error = new Error(`Apps Script returned non-JSON response: ${text.slice(0, 120)}`);
+      error.statusCode = 502;
+      throw error;
+    }
+
+    if (!response.ok || data.ok === false) {
+      const error = new Error(data.error || `Apps Script request failed with ${response.status}`);
+      error.statusCode = response.ok ? 502 : response.status;
+      throw error;
+    }
+
+    return data;
+  }
 }
 
 function columnLetter(index) {
@@ -175,4 +247,3 @@ function columnLetter(index) {
 }
 
 export const sheetsService = new SheetsService();
-

@@ -11,6 +11,8 @@ const envSchema = z.object({
   PORT: z.coerce.number().int().positive().default(3000),
   CORS_ORIGIN: z.string().default("*"),
   SPREADSHEET_ID: z.string().min(10),
+  APPS_SCRIPT_WEB_APP_URL: z.string().url().optional(),
+  APPS_SCRIPT_SECRET: z.string().optional(),
   GOOGLE_APPLICATION_CREDENTIALS: z.string().optional(),
   GOOGLE_SERVICE_ACCOUNT_EMAIL: z.string().optional(),
   GOOGLE_PRIVATE_KEY: z.string().optional(),
@@ -26,3 +28,5 @@ export const hasGoogleCredentials = Boolean(
   env.GOOGLE_APPLICATION_CREDENTIALS ||
     (env.GOOGLE_SERVICE_ACCOUNT_EMAIL && env.GOOGLE_PRIVATE_KEY)
 );
+
+export const hasAppsScriptCredentials = Boolean(env.APPS_SCRIPT_WEB_APP_URL);
