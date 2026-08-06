@@ -22,10 +22,19 @@ export function createApp() {
   );
   app.use(morgan(env.NODE_ENV === "production" ? "combined" : "dev"));
 
+  app.get("/", (req, res) => {
+    res.json({
+      ok: true,
+      name: "TikTok Lead Collector Pro",
+      health: "/api/health"
+    });
+  });
+  app.get("/health", (req, res) => {
+    res.json({ ok: true, name: "TikTok Lead Collector Pro" });
+  });
   app.use("/api", leadsRouter);
   app.use(notFound);
   app.use(errorHandler);
 
   return app;
 }
-
