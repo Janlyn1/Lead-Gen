@@ -1,0 +1,14 @@
+{
+  "name": "tiktok-lead-collector-pro",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Chrome extension and backend for collecting qualified TikTok creator leads into Google Sheets.",
+  "scripts": {
+    "start": "npm --prefix backend start",
+    "dev": "npm --prefix backend run dev",
+    "init:sheets": "npm --prefix backend run init:sheets",
+    "test": "npm --prefix backend test",
+    "check": "npm --prefix backend run check"
+  }
+}
+

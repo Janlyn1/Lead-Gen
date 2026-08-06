@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>TikTok Lead Collector</title>
+    <link rel="stylesheet" href="popup.css">
+  </head>
+  <body>
+    <main>
+      <h1>TikTok Lead Collector</h1>
+
+      <label>
+        Backend URL
+        <input id="apiBaseUrl" type="url" placeholder="http://localhost:3000">
+      </label>
+
+      <div class="grid">
+        <label>
+          Min followers
+          <input id="minFollowers" type="number" min="0" step="100">
+        </label>
+        <label>
+          Max followers
+          <input id="maxFollowers" type="number" min="0" step="100">
+        </label>
+      </div>
+
+      <label>
+        Daily goal
+        <input id="dailyGoal" type="number" min="1" step="1">
+      </label>
+
+      <label class="toggle">
+        <input id="autoSave" type="checkbox">
+        <span>Auto Save Mode</span>
+      </label>
+
+      <label class="toggle">
+        <input id="compactMode" type="checkbox">
+        <span>Compact Mode</span>
+      </label>
+
+      <button id="save">Save Settings</button>
+      <p id="status" aria-live="polite"></p>
+    </main>
+    <script src="popup.js"></script>
+  </body>
+</html>
+
