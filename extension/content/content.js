@@ -141,7 +141,7 @@ async function detectAndRender() {
     return;
   }
 
-  const nextProfileKey = `${nextProfile.tiktokUrl}:${nextProfile.followers}`;
+  const nextProfileKey = `${nextProfile.tiktokUrl}:${nextProfile.videoId}:${nextProfile.followers}:${nextProfile.bio}`;
   const changed = state.profileKey !== nextProfileKey;
   const creatorChanged = !state.profile || state.profile.tiktokUrl !== nextProfile.tiktokUrl;
   const followerChanged = state.profile?.followers !== nextProfile.followers;
@@ -169,15 +169,17 @@ function detectProfile() {
 
   const username = match[1];
   const tiktokUrl = `https://www.tiktok.com/@${username}`;
+  const videoId = location.pathname.match(/\/video\/(\d+)/)?.[1] || "";
   const fullName = findFullName(username);
   const followersText = findFollowersText(username);
   const followers = parseFollowers(followersText);
-  const bio = findBioText();
+  const bio = findBioText(username);
 
   return {
     username,
     fullName,
     tiktokUrl,
+    videoId,
     followers,
     bio
   };
@@ -339,17 +341,45 @@ function normalizeToken(value) {
   return String(value || "").toLowerCase().replace(/[^a-z0-9]/g, "");
 }
 
-function findBioText() {
+function findBioText(username) {
+  const caption = findCurrentVideoCaption(username);
+  if (caption) return caption;
+
   const direct = document.querySelector("[data-e2e='user-bio']");
   if (direct?.textContent?.trim()) return direct.textContent.trim();
 
-  const meta = document.querySelector("meta[name='description'], meta[property='og:description']");
-  if (meta?.content) return meta.content;
-
-  const likely = [...document.querySelectorAll("h2, div, span")]
+  const likely = [...document.querySelectorAll("h1, h2, div, span")]
+    .filter((node) => !host.contains(node) && isVisible(node))
     .map((node) => node.textContent?.trim() || "")
-    .find((text) => text.length > 15 && text.length < 500 && /@|email|ig|manila|cebu|beauty|food|life|business/i.test(text));
+    .find((text) => text.length > 15 && text.length < 500 && !/Followers|Following|Comments|Related|Sponsored/i.test(text));
   return likely || "";
+}
+
+function findCurrentVideoCaption(username) {
+  const pageText = getTikTokPageText().replace(/\s+/g, " ");
+  const escapedUsername = escapeRegex(username);
+  const patterns = [
+    new RegExp(`${escapedUsername}\\s*[·•-]\\s*[^#@]{0,80}\\s+(.{8,420}?)(?=\\s+(?:more|Creator|Comments|Related|Follow|\\d[\\d,.]*[KMB]?\\s+Followers)|$)`, "i"),
+    new RegExp(`@?${escapedUsername}\\s+(.{8,420}?)(?=\\s+(?:more|Creator|Comments|Related|Follow|\\d[\\d,.]*[KMB]?\\s+Followers)|$)`, "i")
+  ];
+
+  for (const pattern of patterns) {
+    const match = pageText.match(pattern);
+    if (match?.[1]) {
+      const cleaned = cleanCaption(match[1]);
+      if (cleaned) return cleaned;
+    }
+  }
+
+  return "";
+}
+
+function cleanCaption(value) {
+  return String(value || "")
+    .replace(/\s+/g, " ")
+    .replace(/^[-·•\s]+/, "")
+    .replace(/\s*more$/i, "")
+    .trim();
 }
 
 function parseFollowers(input) {
