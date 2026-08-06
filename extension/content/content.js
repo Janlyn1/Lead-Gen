@@ -157,7 +157,7 @@ function detectProfile() {
 
   const username = match[1];
   const tiktokUrl = `https://www.tiktok.com/@${username}`;
-  const followersText = findFollowersText();
+  const followersText = findFollowersText(username);
   const followers = parseFollowers(followersText);
   const bio = findBioText();
 
@@ -169,29 +169,58 @@ function detectProfile() {
   };
 }
 
-function findFollowersText() {
+function findFollowersText(username) {
   const exact = document.querySelector("[data-e2e='followers-count']");
   if (exact?.textContent?.trim()) return exact.textContent.trim();
 
-  const pageMatch = extractFollowerCountFromText(document.body?.innerText || "");
-  if (pageMatch) return pageMatch;
+  const stateMatch = findFollowersInPageState(username);
+  if (stateMatch) return stateMatch;
 
   const candidates = [...document.querySelectorAll("strong, span, div")]
     .map((node) => node.textContent?.trim() || "")
     .filter(Boolean);
 
   for (let index = 0; index < candidates.length; index += 1) {
-    const inlineMatch = extractFollowerCountFromText(candidates[index]);
+    const inlineMatch = bestFollowerCountFromText(candidates[index]);
     if (inlineMatch) return inlineMatch;
     if (/^followers$/i.test(candidates[index + 1] || "")) return candidates[index];
   }
+
+  return bestFollowerCountFromText(document.body?.innerText || "");
+}
+
+function findFollowersInPageState(username) {
+  const escapedUsername = escapeRegex(username);
+  const patterns = [
+    new RegExp(`"uniqueId"\\s*:\\s*"${escapedUsername}"[\\s\\S]{0,4000}?"followerCount"\\s*:\\s*(\\d+)`, "i"),
+    new RegExp(`"id"\\s*:\\s*"${escapedUsername}"[\\s\\S]{0,4000}?"followerCount"\\s*:\\s*(\\d+)`, "i"),
+    new RegExp(`"followerCount"\\s*:\\s*(\\d+)[\\s\\S]{0,4000}?"uniqueId"\\s*:\\s*"${escapedUsername}"`, "i")
+  ];
+
+  for (const script of document.scripts) {
+    const text = script.textContent || "";
+    if (!text.includes(username) || !text.includes("followerCount")) continue;
+    for (const pattern of patterns) {
+      const match = text.match(pattern);
+      if (match?.[1]) return match[1];
+    }
+  }
+
   return "";
 }
 
-function extractFollowerCountFromText(text) {
+function bestFollowerCountFromText(text) {
   const normalized = String(text || "").replace(/\s+/g, " ");
-  const match = normalized.match(/(\d[\d,]*(?:\.\d+)?\s*[KMB]?)\s*Followers\b/i);
-  return match ? match[1] : "";
+  const matches = [...normalized.matchAll(/(\d[\d,]*(?:\.\d+)?\s*[KMB]?)\s*Followers\b/gi)];
+  if (!matches.length) return "";
+
+  return matches
+    .map((match) => match[1])
+    .sort((a, b) => parseFollowers(b) - parseFollowers(a))[0];
+}
+
+function escapeRegex(value) {
+  return String(value || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 function findBioText() {
