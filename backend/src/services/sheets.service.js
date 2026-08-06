@@ -12,6 +12,7 @@ const EXPAND_HEADERS = [
   "Content Category",
   "Location",
   "Business | Contact Email",
+  "Sourcer",
   "Date",
   "Notes"
 ];
@@ -121,7 +122,7 @@ export class SheetsService {
     const sheets = await this.getClient();
     await sheets.spreadsheets.values.append({
       spreadsheetId: env.SPREADSHEET_ID,
-      range: `'${EXPAND_LINK_SHEET}'!A:H`,
+      range: `'${EXPAND_LINK_SHEET}'!A:I`,
       valueInputOption: "RAW",
       insertDataOption: "INSERT_ROWS",
       requestBody: {
@@ -133,6 +134,7 @@ export class SheetsService {
             Array.isArray(lead.category) ? lead.category.join(", ") : lead.category || "",
             lead.location || "",
             lead.email || "",
+            lead.sourcer || "",
             lead.date || new Date().toISOString().slice(0, 10),
             lead.notes || ""
           ]
@@ -157,7 +159,7 @@ export class SheetsService {
       return response.rows || [];
     }
 
-    return this.getValues(`'${EXPAND_LINK_SHEET}'!A2:H`);
+    return this.getValues(`'${EXPAND_LINK_SHEET}'!A2:I`);
   }
 
   async getExistingRows() {

@@ -9,6 +9,7 @@ const EXPAND_HEADERS = [
   "Content Category",
   "Location",
   "Business | Contact Email",
+  "Sourcer",
   "Date",
   "Notes"
 ];
@@ -62,6 +63,7 @@ function doPost(e) {
         Array.isArray(lead.category) ? lead.category.join(", ") : lead.category || "",
         lead.location || "",
         lead.email || "",
+        lead.sourcer || "",
         lead.date || Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyy-MM-dd"),
         lead.notes || ""
       ]);
@@ -76,7 +78,7 @@ function doPost(e) {
 
     if (action === "getExpandedRows") {
       ensureStructure_();
-      return json_({ ok: true, rows: getRows_(EXPAND_LINK_SHEET, 8) });
+      return json_({ ok: true, rows: getRows_(EXPAND_LINK_SHEET, 9) });
     }
 
     if (action === "getExistingRows") {

@@ -30,15 +30,15 @@ The backend creates or repairs these sheets:
 
 `Expand Link`
 
-| Full Name | TikTok Profile Link | Follower Count | Content Category | Location | Business \| Contact Email | Date | Notes |
-| --- | --- | --- | --- | --- | --- | --- | --- |
+| Full Name | TikTok Profile Link | Follower Count | Content Category | Location | Business \| Contact Email | Sourcer | Date | Notes |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
 
 `Existing`
 
 Use this sheet for creators you already collected before using the extension. Paste old creators here with the same columns as `Expand Link`. Duplicate detection checks this sheet too, so an existing creator cannot be saved again.
 
-| Full Name | TikTok Profile Link | Follower Count | Content Category | Location | Business \| Contact Email | Date | Notes |
-| --- | --- | --- | --- | --- | --- | --- | --- |
+| Full Name | TikTok Profile Link | Follower Count | Content Category | Location | Business \| Contact Email | Sourcer | Date | Notes |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
 
 If your `Expand Link` or `Existing` sheet was created with old columns or messy pasted values, run `resetLeadSheets` once from Apps Script. It renames the old sheets as backups and creates clean tabs with the correct headers.
 
