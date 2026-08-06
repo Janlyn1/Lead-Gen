@@ -1,5 +1,5 @@
 const DEFAULT_SETTINGS = {
-  apiBaseUrl: "http://localhost:3000",
+  apiBaseUrl: "https://lead-gen-sgz6.onrender.com",
   minFollowers: 2000,
   maxFollowers: 20000,
   autoSave: false,
@@ -373,7 +373,7 @@ async function saveCurrentLead() {
     state.statusKind = "warn";
     state.duplicate = true;
   } else {
-    state.statusText = response.error || "Save failed";
+    state.statusText = response.error || `Save failed${response.status ? ` (${response.status})` : ""}`;
     state.statusKind = "error";
   }
   render();

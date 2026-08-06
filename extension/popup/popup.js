@@ -1,5 +1,5 @@
 const DEFAULT_SETTINGS = {
-  apiBaseUrl: "http://localhost:3000",
+  apiBaseUrl: "https://lead-gen-sgz6.onrender.com",
   minFollowers: 2000,
   maxFollowers: 20000,
   autoSave: false,
@@ -51,4 +51,3 @@ async function saveSettings() {
   fields.status.textContent = "Saved.";
   fields.status.style.color = "#4ade80";
 }
-

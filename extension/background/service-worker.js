@@ -1,5 +1,7 @@
+const RENDER_BACKEND_URL = "https://lead-gen-sgz6.onrender.com";
+
 const DEFAULT_SETTINGS = {
-  apiBaseUrl: "http://localhost:3000",
+  apiBaseUrl: RENDER_BACKEND_URL,
   minFollowers: 2000,
   maxFollowers: 20000,
   autoSave: false,
@@ -9,7 +11,8 @@ const DEFAULT_SETTINGS = {
 
 chrome.runtime.onInstalled.addListener(async () => {
   const current = await chrome.storage.sync.get(DEFAULT_SETTINGS);
-  await chrome.storage.sync.set({ ...DEFAULT_SETTINGS, ...current });
+  const next = normalizeSettings({ ...DEFAULT_SETTINGS, ...current });
+  await chrome.storage.sync.set(next);
 });
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
@@ -65,16 +68,22 @@ async function handleMessage(message) {
 }
 
 async function requestJson(url, options = {}) {
-  const response = await fetch(url, options);
-  const data = await response.json().catch(() => ({}));
-  if (!response.ok) {
-    return { ok: false, status: response.status, ...data };
+  try {
+    const response = await fetch(url, options);
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return { ok: false, status: response.status, url, ...data };
+    }
+    return { ok: true, url, ...data };
+  } catch (error) {
+    return { ok: false, error: `Cannot reach backend (${new URL(url).origin}): ${error.message}`, url };
   }
-  return { ok: true, ...data };
 }
 
 async function getSettings() {
-  return chrome.storage.sync.get(DEFAULT_SETTINGS);
+  const settings = normalizeSettings(await chrome.storage.sync.get(DEFAULT_SETTINGS));
+  await chrome.storage.sync.set(settings);
+  return settings;
 }
 
 function sanitizeSettings(settings) {
@@ -85,5 +94,14 @@ function sanitizeSettings(settings) {
   if (typeof settings.autoSave === "boolean") next.autoSave = settings.autoSave;
   if (typeof settings.compactMode === "boolean") next.compactMode = settings.compactMode;
   if (Number.isFinite(Number(settings.dailyGoal))) next.dailyGoal = Number(settings.dailyGoal);
+  return normalizeSettings(next);
+}
+
+function normalizeSettings(settings) {
+  const next = { ...DEFAULT_SETTINGS, ...settings };
+  if (!next.apiBaseUrl || /^http:\/\/localhost(?::\d+)?$/i.test(next.apiBaseUrl)) {
+    next.apiBaseUrl = RENDER_BACKEND_URL;
+  }
+  next.apiBaseUrl = String(next.apiBaseUrl).replace(/\/+$/, "");
   return next;
 }
