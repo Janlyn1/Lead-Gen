@@ -18,8 +18,17 @@ function doGet() {
     ok: true,
     name: "TikTok Lead Collector Apps Script",
     message: "Use POST requests from the backend for sheet operations.",
-    cleanup: "Run resetExistingSheet() once in Apps Script if your Existing sheet has old/trash columns."
+    cleanup: "Run resetLeadSheets() once in Apps Script if Expand Link or Existing has old/trash columns."
   });
+}
+
+function resetLeadSheets() {
+  resetSheet_(EXPAND_LINK_SHEET, EXPAND_HEADERS);
+  resetSheet_(EXISTING_SHEET, EXPAND_HEADERS);
+}
+
+function resetExpandLinkSheet() {
+  resetSheet_(EXPAND_LINK_SHEET, EXPAND_HEADERS);
 }
 
 function resetExistingSheet() {

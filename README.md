@@ -40,7 +40,7 @@ Use this sheet for creators you already collected before using the extension. Pa
 | Full Name | TikTok Profile Link | Follower Count | Content Category | Location | Business \| Contact Email | Date | Notes |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 
-If your `Existing` sheet was created with old columns or messy pasted values, run `resetExistingSheet` once from Apps Script. It renames the old sheet as a backup and creates a clean `Existing` tab with the correct headers.
+If your `Expand Link` or `Existing` sheet was created with old columns or messy pasted values, run `resetLeadSheets` once from Apps Script. It renames the old sheets as backups and creates clean tabs with the correct headers.
 
 ## Setup
 
