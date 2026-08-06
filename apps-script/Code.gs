@@ -17,8 +17,13 @@ function doGet() {
   return json_({
     ok: true,
     name: "TikTok Lead Collector Apps Script",
-    message: "Use POST requests from the backend for sheet operations."
+    message: "Use POST requests from the backend for sheet operations.",
+    cleanup: "Run resetExistingSheet() once in Apps Script if your Existing sheet has old/trash columns."
   });
+}
+
+function resetExistingSheet() {
+  resetSheet_(EXISTING_SHEET, EXPAND_HEADERS);
 }
 
 function doPost(e) {
@@ -99,9 +104,25 @@ function ensureSheet_(name, headers) {
   });
 
   if (!matches) {
+    if (sheet.getLastRow() > 1 && name === EXISTING_SHEET) {
+      return;
+    }
     headerRange.setValues([headers]);
     sheet.setFrozenRows(1);
   }
+}
+
+function resetSheet_(name, headers) {
+  const ss = getSpreadsheet_();
+  const existing = ss.getSheetByName(name);
+  if (existing) {
+    existing.setName(name + " Backup " + Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyyMMdd-HHmmss"));
+  }
+
+  const sheet = ss.insertSheet(name);
+  sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+  sheet.setFrozenRows(1);
+  sheet.autoResizeColumns(1, headers.length);
 }
 
 function getRows_(sheetName, width) {
