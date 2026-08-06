@@ -451,8 +451,29 @@ function render() {
 
 function renderNotice() {
   const notice = root.querySelector(".js-notice");
-  notice.textContent = state.statusText;
-  notice.className = `notice js-notice ${state.statusKind}`;
+  const derived = getNoticeState();
+  notice.textContent = derived.text;
+  notice.className = `notice js-notice ${derived.kind}`;
+}
+
+function getNoticeState() {
+  if (state.statusText) {
+    return { text: state.statusText, kind: state.statusKind };
+  }
+
+  if (!state.profile) {
+    return { text: "", kind: "" };
+  }
+
+  if (state.duplicate) {
+    return { text: "Already Saved", kind: "warn" };
+  }
+
+  if (isQualified()) {
+    return { text: "Ready to save", kind: "success" };
+  }
+
+  return { text: "Not qualified", kind: "error" };
 }
 
 function renderRecent() {
