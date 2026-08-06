@@ -2,6 +2,7 @@ const DEFAULT_SETTINGS = {
   apiBaseUrl: "https://lead-gen-sgz6.onrender.com",
   minFollowers: 2000,
   maxFollowers: 20000,
+  autoSkipOutOfRange: true,
   autoSave: false,
   compactMode: false,
   dailyGoal: 300
@@ -12,6 +13,7 @@ const fields = {
   minFollowers: document.querySelector("#minFollowers"),
   maxFollowers: document.querySelector("#maxFollowers"),
   dailyGoal: document.querySelector("#dailyGoal"),
+  autoSkipOutOfRange: document.querySelector("#autoSkipOutOfRange"),
   autoSave: document.querySelector("#autoSave"),
   compactMode: document.querySelector("#compactMode"),
   save: document.querySelector("#save"),
@@ -27,6 +29,7 @@ async function loadSettings() {
   fields.minFollowers.value = settings.minFollowers;
   fields.maxFollowers.value = settings.maxFollowers;
   fields.dailyGoal.value = settings.dailyGoal;
+  fields.autoSkipOutOfRange.checked = settings.autoSkipOutOfRange;
   fields.autoSave.checked = settings.autoSave;
   fields.compactMode.checked = settings.compactMode;
 }
@@ -37,6 +40,7 @@ async function saveSettings() {
     minFollowers: Number(fields.minFollowers.value),
     maxFollowers: Number(fields.maxFollowers.value),
     dailyGoal: Number(fields.dailyGoal.value),
+    autoSkipOutOfRange: fields.autoSkipOutOfRange.checked,
     autoSave: fields.autoSave.checked,
     compactMode: fields.compactMode.checked
   };

@@ -2,6 +2,7 @@ const DEFAULT_SETTINGS = {
   apiBaseUrl: "https://lead-gen-sgz6.onrender.com",
   minFollowers: 2000,
   maxFollowers: 20000,
+  autoSkipOutOfRange: true,
   autoSave: false,
   compactMode: false,
   dailyGoal: 300
@@ -17,6 +18,8 @@ const state = {
   statusText: "",
   statusKind: "",
   autoSavedUrls: new Set(),
+  lastAutoSkippedKey: "",
+  autoSkipTimer: null,
   dragging: false,
   offsetX: 0,
   offsetY: 0
@@ -121,6 +124,7 @@ function bindEvents() {
     state.settings = await getSettings();
     render();
     maybeAutoSave();
+    maybeAutoSkipOutOfRange();
   });
 }
 
@@ -152,6 +156,7 @@ async function detectAndRender() {
     state.statusText = "";
     state.statusKind = "";
     state.duplicate = false;
+    clearAutoSkipTimer();
     if (creatorChanged) {
       checkDuplicate(nextProfile);
     }
@@ -160,6 +165,7 @@ async function detectAndRender() {
   render();
   if (creatorChanged || followerChanged) {
     maybeAutoSave();
+    maybeAutoSkipOutOfRange();
   }
 }
 
@@ -181,6 +187,7 @@ function detectProfile() {
     tiktokUrl,
     videoId,
     followers,
+    followersKnown: Boolean(followersText),
     bio
   };
 }
@@ -406,6 +413,105 @@ async function maybeAutoSave() {
   if (state.autoSavedUrls.has(state.profile.tiktokUrl)) return;
   state.autoSavedUrls.add(state.profile.tiktokUrl);
   await saveCurrentLead();
+}
+
+function maybeAutoSkipOutOfRange() {
+  if (!state.settings.autoSkipOutOfRange || !state.profile || !state.profile.followersKnown) return;
+  if (!isOutOfRange()) return;
+
+  const key = `${state.profile.tiktokUrl}:${state.profile.videoId}:${state.profile.followers}`;
+  if (state.lastAutoSkippedKey === key) return;
+
+  state.lastAutoSkippedKey = key;
+  state.statusText = `Auto skip: ${getOutOfRangeReason()}`;
+  state.statusKind = "muted";
+  renderNotice();
+
+  clearAutoSkipTimer();
+  state.autoSkipTimer = window.setTimeout(() => {
+    if (!state.profile) return;
+    const currentKey = `${state.profile.tiktokUrl}:${state.profile.videoId}:${state.profile.followers}`;
+    if (currentKey !== key || !isOutOfRange()) return;
+    goToNextVideo();
+  }, 900);
+}
+
+function isOutOfRange() {
+  if (!state.profile?.followersKnown) return false;
+  return state.profile.followers < state.settings.minFollowers || state.profile.followers > state.settings.maxFollowers;
+}
+
+function getOutOfRangeReason() {
+  if (!state.profile) return "not qualified";
+  if (state.profile.followers < state.settings.minFollowers) return `below ${formatCount(state.settings.minFollowers)}`;
+  if (state.profile.followers > state.settings.maxFollowers) return `above ${formatCount(state.settings.maxFollowers)}`;
+  return "not qualified";
+}
+
+function clearAutoSkipTimer() {
+  if (!state.autoSkipTimer) return;
+  window.clearTimeout(state.autoSkipTimer);
+  state.autoSkipTimer = null;
+}
+
+function goToNextVideo() {
+  const nextButton = findNextVideoButton();
+  if (nextButton) {
+    nextButton.click();
+    return;
+  }
+
+  document.dispatchEvent(new KeyboardEvent("keydown", {
+    key: "ArrowDown",
+    code: "ArrowDown",
+    keyCode: 40,
+    which: 40,
+    bubbles: true,
+    cancelable: true
+  }));
+  document.dispatchEvent(new KeyboardEvent("keyup", {
+    key: "ArrowDown",
+    code: "ArrowDown",
+    keyCode: 40,
+    which: 40,
+    bubbles: true,
+    cancelable: true
+  }));
+  window.dispatchEvent(new WheelEvent("wheel", { deltaY: 900, bubbles: true, cancelable: true }));
+}
+
+function findNextVideoButton() {
+  const candidates = [...document.querySelectorAll("button, [role='button']")]
+    .filter((node) => !host.contains(node) && isVisible(node))
+    .map((node) => ({ node, rect: node.getBoundingClientRect(), label: getButtonLabel(node) }))
+    .filter((item) => {
+      if (/next|down|scroll/i.test(item.label)) return true;
+      const centerX = item.rect.left + item.rect.width / 2;
+      const centerY = item.rect.top + item.rect.height / 2;
+      return item.rect.width >= 32 &&
+        item.rect.width <= 76 &&
+        item.rect.height >= 32 &&
+        item.rect.height <= 76 &&
+        centerX > window.innerWidth * 0.58 &&
+        centerX < window.innerWidth * 0.84 &&
+        centerY > window.innerHeight * 0.42 &&
+        centerY < window.innerHeight * 0.68;
+    })
+    .sort((a, b) => {
+      const aLabelScore = /next|down|scroll/i.test(a.label) ? 0 : 1;
+      const bLabelScore = /next|down|scroll/i.test(b.label) ? 0 : 1;
+      return aLabelScore - bLabelScore || b.rect.top - a.rect.top;
+    });
+
+  return candidates[0]?.node || null;
+}
+
+function getButtonLabel(node) {
+  return [
+    node.getAttribute("aria-label"),
+    node.getAttribute("title"),
+    node.textContent
+  ].filter(Boolean).join(" ");
 }
 
 async function refreshStats() {

@@ -4,6 +4,7 @@ const DEFAULT_SETTINGS = {
   apiBaseUrl: RENDER_BACKEND_URL,
   minFollowers: 2000,
   maxFollowers: 20000,
+  autoSkipOutOfRange: true,
   autoSave: false,
   compactMode: false,
   dailyGoal: 300
@@ -91,6 +92,7 @@ function sanitizeSettings(settings) {
   if (typeof settings.apiBaseUrl === "string") next.apiBaseUrl = settings.apiBaseUrl.replace(/\/+$/, "");
   if (Number.isFinite(Number(settings.minFollowers))) next.minFollowers = Number(settings.minFollowers);
   if (Number.isFinite(Number(settings.maxFollowers))) next.maxFollowers = Number(settings.maxFollowers);
+  if (typeof settings.autoSkipOutOfRange === "boolean") next.autoSkipOutOfRange = settings.autoSkipOutOfRange;
   if (typeof settings.autoSave === "boolean") next.autoSave = settings.autoSave;
   if (typeof settings.compactMode === "boolean") next.compactMode = settings.compactMode;
   if (Number.isFinite(Number(settings.dailyGoal))) next.dailyGoal = Number(settings.dailyGoal);
