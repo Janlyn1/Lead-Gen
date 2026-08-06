@@ -173,17 +173,21 @@ function findFollowersText(username) {
   const exact = document.querySelector("[data-e2e='followers-count']");
   if (exact?.textContent?.trim()) return exact.textContent.trim();
 
+  const visibleElementMatch = findVisibleFollowerElementText(username);
+  if (visibleElementMatch) return visibleElementMatch;
+
   const pageText = getTikTokPageText();
   const visibleMatch = findVisibleFollowersForUsername(username, pageText);
   if (visibleMatch) return visibleMatch;
 
-  const bodyMatch = bestFollowerCountFromText(pageText);
-  if (bodyMatch) return bodyMatch;
-
   const stateMatch = findFollowersInPageState(username);
   if (stateMatch) return stateMatch;
 
+  const bodyMatch = bestFollowerCountFromText(pageText);
+  if (bodyMatch) return bodyMatch;
+
   const candidates = [...document.querySelectorAll("strong, span, div")]
+    .filter((node) => !host.contains(node) && isVisible(node))
     .map((node) => node.textContent?.trim() || "")
     .filter(Boolean);
 
@@ -194,6 +198,47 @@ function findFollowersText(username) {
   }
 
   return "";
+}
+
+function findVisibleFollowerElementText(username) {
+  const normalizedUsername = normalizeToken(username);
+  const candidates = [...document.body.querySelectorAll("a, section, article, div, span, strong")]
+    .filter((node) => !host.contains(node) && isVisible(node))
+    .map((node) => ({
+      node,
+      text: String(node.innerText || node.textContent || "").replace(/\s+/g, " ").trim()
+    }))
+    .filter((item) => item.text.includes("Followers") && item.text.length <= 320)
+    .map((item) => ({
+      ...item,
+      followers: bestFollowerCountFromText(item.text),
+      normalizedText: normalizeToken(item.text)
+    }))
+    .filter((item) => item.followers);
+
+  const usernameMatches = candidates
+    .filter((item) => item.normalizedText.includes(normalizedUsername) || normalizedUsername.includes(item.normalizedText.slice(0, 8)))
+    .sort(sortVisibleCandidate);
+
+  if (usernameMatches[0]) return usernameMatches[0].followers;
+
+  const rightSideMatches = candidates
+    .filter((item) => item.node.getBoundingClientRect().left > window.innerWidth * 0.55)
+    .sort(sortVisibleCandidate);
+
+  return rightSideMatches[0]?.followers || candidates.sort(sortVisibleCandidate)[0]?.followers || "";
+}
+
+function sortVisibleCandidate(a, b) {
+  const aRect = a.node.getBoundingClientRect();
+  const bRect = b.node.getBoundingClientRect();
+  return a.text.length - b.text.length || aRect.top - bRect.top || bRect.left - aRect.left;
+}
+
+function isVisible(node) {
+  const rect = node.getBoundingClientRect();
+  const style = window.getComputedStyle(node);
+  return rect.width > 0 && rect.height > 0 && style.visibility !== "hidden" && style.display !== "none";
 }
 
 function getTikTokPageText() {
@@ -256,6 +301,10 @@ function bestFollowerCountFromText(text, options = {}) {
 
 function escapeRegex(value) {
   return String(value || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function normalizeToken(value) {
+  return String(value || "").toLowerCase().replace(/[^a-z0-9]/g, "");
 }
 
 function findBioText() {
