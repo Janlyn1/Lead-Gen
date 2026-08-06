@@ -342,44 +342,10 @@ function normalizeToken(value) {
 }
 
 function findBioText(username) {
-  const caption = findCurrentVideoCaption(username);
-  if (caption) return caption;
-
   const direct = document.querySelector("[data-e2e='user-bio']");
   if (direct?.textContent?.trim()) return direct.textContent.trim();
 
-  const likely = [...document.querySelectorAll("h1, h2, div, span")]
-    .filter((node) => !host.contains(node) && isVisible(node))
-    .map((node) => node.textContent?.trim() || "")
-    .find((text) => text.length > 15 && text.length < 500 && !/Followers|Following|Comments|Related|Sponsored/i.test(text));
-  return likely || "";
-}
-
-function findCurrentVideoCaption(username) {
-  const pageText = getTikTokPageText().replace(/\s+/g, " ");
-  const escapedUsername = escapeRegex(username);
-  const patterns = [
-    new RegExp(`${escapedUsername}\\s*[·•-]\\s*[^#@]{0,80}\\s+(.{8,420}?)(?=\\s+(?:more|Creator|Comments|Related|Follow|\\d[\\d,.]*[KMB]?\\s+Followers)|$)`, "i"),
-    new RegExp(`@?${escapedUsername}\\s+(.{8,420}?)(?=\\s+(?:more|Creator|Comments|Related|Follow|\\d[\\d,.]*[KMB]?\\s+Followers)|$)`, "i")
-  ];
-
-  for (const pattern of patterns) {
-    const match = pageText.match(pattern);
-    if (match?.[1]) {
-      const cleaned = cleanCaption(match[1]);
-      if (cleaned) return cleaned;
-    }
-  }
-
   return "";
-}
-
-function cleanCaption(value) {
-  return String(value || "")
-    .replace(/\s+/g, " ")
-    .replace(/^[-·•\s]+/, "")
-    .replace(/\s*more$/i, "")
-    .trim();
 }
 
 function parseFollowers(input) {
