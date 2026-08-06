@@ -173,10 +173,11 @@ function findFollowersText(username) {
   const exact = document.querySelector("[data-e2e='followers-count']");
   if (exact?.textContent?.trim()) return exact.textContent.trim();
 
-  const visibleMatch = findVisibleFollowersForUsername(username);
+  const pageText = getTikTokPageText();
+  const visibleMatch = findVisibleFollowersForUsername(username, pageText);
   if (visibleMatch) return visibleMatch;
 
-  const bodyMatch = bestFollowerCountFromText(document.body?.innerText || "");
+  const bodyMatch = bestFollowerCountFromText(pageText);
   if (bodyMatch) return bodyMatch;
 
   const stateMatch = findFollowersInPageState(username);
@@ -195,10 +196,22 @@ function findFollowersText(username) {
   return "";
 }
 
-function findVisibleFollowersForUsername(username) {
-  const normalizedText = String(document.body?.innerText || "").replace(/\s+/g, " ");
-  const escapedUsername = escapeRegex(username);
-  const directPattern = new RegExp(`${escapedUsername}[\\s\\S]{0,120}?(\\d[\\d,]*(?:\\.\\d+)?\\s*[KMB]?)\\s*Followers\\b`, "i");
+function getTikTokPageText() {
+  const previousDisplay = host.style.display;
+  host.style.display = "none";
+  const text = document.body?.innerText || "";
+  host.style.display = previousDisplay;
+  return text;
+}
+
+function findVisibleFollowersForUsername(username, pageText) {
+  const normalizedText = String(pageText || "").replace(/\s+/g, " ");
+  const usernamePattern = username
+    .split(/[._-]+/)
+    .filter(Boolean)
+    .map(escapeRegex)
+    .join("[\\s._-]+");
+  const directPattern = new RegExp(`@?${usernamePattern}[\\s\\S]{0,140}?(\\d[\\d,]*(?:\\.\\d+)?\\s*[KMB]?)\\s*Followers\\b`, "i");
   const directMatch = normalizedText.match(directPattern);
   if (directMatch?.[1]) return directMatch[1];
 
@@ -238,7 +251,7 @@ function bestFollowerCountFromText(text, options = {}) {
   if (options.preferSmall) {
     return counts.sort((a, b) => parseFollowers(a) - parseFollowers(b))[0];
   }
-  return counts.sort((a, b) => parseFollowers(b) - parseFollowers(a))[0];
+  return counts[0];
 }
 
 function escapeRegex(value) {
