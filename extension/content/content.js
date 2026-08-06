@@ -1,7 +1,7 @@
 const DEFAULT_SETTINGS = {
   apiBaseUrl: "https://lead-gen-sgz6.onrender.com",
   minFollowers: 2000,
-  maxFollowers: 20000,
+  maxFollowers: 20100,
   autoSkipOutOfRange: true,
   autoSave: false,
   compactMode: false,
@@ -366,7 +366,7 @@ function parseFollowers(input) {
 
 function isQualified() {
   if (!state.profile) return false;
-  return state.profile.followers >= state.settings.minFollowers && state.profile.followers <= state.settings.maxFollowers;
+  return state.profile.followers > state.settings.minFollowers && state.profile.followers < state.settings.maxFollowers;
 }
 
 async function checkDuplicate(profile) {
@@ -438,13 +438,13 @@ function maybeAutoSkipOutOfRange() {
 
 function isOutOfRange() {
   if (!state.profile?.followersKnown) return false;
-  return state.profile.followers < state.settings.minFollowers || state.profile.followers > state.settings.maxFollowers;
+  return state.profile.followers <= state.settings.minFollowers || state.profile.followers >= state.settings.maxFollowers;
 }
 
 function getOutOfRangeReason() {
   if (!state.profile) return "not qualified";
-  if (state.profile.followers < state.settings.minFollowers) return `below ${formatCount(state.settings.minFollowers)}`;
-  if (state.profile.followers > state.settings.maxFollowers) return `above ${formatCount(state.settings.maxFollowers)}`;
+  if (state.profile.followers <= state.settings.minFollowers) return `not above ${formatCount(state.settings.minFollowers)}`;
+  if (state.profile.followers >= state.settings.maxFollowers) return `not below ${formatCount(state.settings.maxFollowers)}`;
   return "not qualified";
 }
 

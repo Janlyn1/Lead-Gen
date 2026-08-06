@@ -11,7 +11,11 @@ test("parseFollowers handles common TikTok shorthand", () => {
 
 test("isQualified applies default min and max", () => {
   assert.equal(isQualified("1.9K"), false);
+  assert.equal(isQualified("2K"), false);
+  assert.equal(isQualified("2.1K"), true);
   assert.equal(isQualified("8.5K"), true);
+  assert.equal(isQualified("20K"), true);
+  assert.equal(isQualified("20.1K"), false);
   assert.equal(isQualified("25K"), false);
 });
 
@@ -22,4 +26,3 @@ test("parseBio extracts lead details", () => {
   assert.equal(result.location, "Manila");
   assert.deepEqual(result.category, ["Beauty", "Business"]);
 });
-

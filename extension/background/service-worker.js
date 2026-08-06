@@ -3,7 +3,7 @@ const RENDER_BACKEND_URL = "https://lead-gen-sgz6.onrender.com";
 const DEFAULT_SETTINGS = {
   apiBaseUrl: RENDER_BACKEND_URL,
   minFollowers: 2000,
-  maxFollowers: 20000,
+  maxFollowers: 20100,
   autoSkipOutOfRange: true,
   autoSave: false,
   compactMode: false,

@@ -22,8 +22,7 @@ export function parseFollowers(input) {
   return Math.round(value * multiplier);
 }
 
-export function isQualified(followers, min = 2000, max = 20000) {
+export function isQualified(followers, min = 2000, max = 20100) {
   const count = parseFollowers(followers);
-  return count >= min && count <= max;
+  return count > min && count < max;
 }
-
