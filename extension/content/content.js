@@ -72,6 +72,25 @@ root.innerHTML = `
       </details>
       <section class="approval js-approval">
         <div class="approval-title">Approval Review</div>
+        <label class="approval-field">
+          <span>Google Sheet URL</span>
+          <input class="js-approval-sheet-url" type="url" placeholder="Paste Google Sheet link">
+        </label>
+        <div class="approval-grid">
+          <label class="approval-field">
+            <span>Link Column</span>
+            <input class="js-approval-link-column" type="text" placeholder="A">
+          </label>
+          <label class="approval-field">
+            <span>Source Tab</span>
+            <input class="js-approval-source-sheet" type="text" placeholder="Optional">
+          </label>
+        </div>
+        <label class="approval-field">
+          <span>Reviewer Gmail</span>
+          <input class="js-reviewer-email-input" type="email" placeholder="name@gmail.com">
+        </label>
+        <button class="connect-sheet js-connect-sheet">CONNECT SHEET</button>
         <div class="line"><span>Gmail</span><strong class="js-reviewer">-</strong></div>
         <div class="line"><span>Progress</span><strong class="js-review-progress">-</strong></div>
         <button class="review-next js-review-next">START / NEXT LINK</button>
@@ -98,6 +117,11 @@ const saveButton = root.querySelector(".js-save");
 const notesInput = root.querySelector(".js-notes");
 const compactButton = root.querySelector(".js-toggle-compact");
 const approvalModeToggle = root.querySelector(".js-approval-mode-toggle");
+const approvalSheetUrlInput = root.querySelector(".js-approval-sheet-url");
+const approvalLinkColumnInput = root.querySelector(".js-approval-link-column");
+const approvalSourceSheetInput = root.querySelector(".js-approval-source-sheet");
+const reviewerEmailInput = root.querySelector(".js-reviewer-email-input");
+const connectSheetButton = root.querySelector(".js-connect-sheet");
 const reviewNextButton = root.querySelector(".js-review-next");
 const approveButton = root.querySelector(".js-approve");
 const rejectButton = root.querySelector(".js-reject");
@@ -125,6 +149,7 @@ function bindEvents() {
     await sendMessage("SAVE_SETTINGS", { settings: { approvalMode: state.settings.approvalMode } });
     render();
   });
+  connectSheetButton.addEventListener("click", () => saveApprovalSettingsFromOverlay());
   reviewNextButton.addEventListener("click", () => openNextReviewLink());
   approveButton.addEventListener("click", () => recordReviewDecision("APPROVED"));
   rejectButton.addEventListener("click", () => {
@@ -576,8 +601,13 @@ function getButtonLabel(node) {
 }
 
 async function openNextReviewLink() {
+  if (!(await saveApprovalSettingsFromOverlay({ silent: true }))) {
+    renderApproval();
+    return;
+  }
+
   if (!hasApprovalSettings()) {
-    state.reviewStatus = "Set Sheet URL, link column, and Gmail in extension settings.";
+    state.reviewStatus = "Paste Sheet URL, link column, and Gmail first.";
     state.reviewKind = "error";
     renderApproval();
     return;
@@ -674,6 +704,34 @@ function approvalPayload() {
   };
 }
 
+async function saveApprovalSettingsFromOverlay(options = {}) {
+  const next = {
+    approvalSheetUrl: approvalSheetUrlInput.value.trim(),
+    approvalLinkColumn: approvalLinkColumnInput.value.trim() || "A",
+    approvalSourceSheet: approvalSourceSheetInput.value.trim(),
+    reviewerEmail: reviewerEmailInput.value.trim().toLowerCase(),
+    approvalMode: true
+  };
+
+  state.settings = { ...state.settings, ...next };
+  if (!next.approvalSheetUrl || !next.approvalLinkColumn || !next.reviewerEmail) {
+    if (!options.silent) {
+      state.reviewStatus = "Sheet URL, link column, and Gmail are required.";
+      state.reviewKind = "error";
+    }
+    await sendMessage("SAVE_SETTINGS", { settings: next });
+    return false;
+  }
+
+  await sendMessage("SAVE_SETTINGS", { settings: next });
+  if (!options.silent) {
+    state.reviewStatus = "Sheet connected";
+    state.reviewKind = "success";
+  }
+  renderApproval();
+  return true;
+}
+
 function hasApprovalSettings() {
   return Boolean(state.settings.approvalSheetUrl && state.settings.approvalLinkColumn && state.settings.reviewerEmail);
 }
@@ -732,6 +790,7 @@ function renderApproval() {
   approval.classList.toggle("hidden", !state.settings.approvalMode);
   if (!state.settings.approvalMode) return;
 
+  syncApprovalInputs();
   root.querySelector(".js-reviewer").textContent = state.settings.reviewerEmail || "Set Gmail";
   root.querySelector(".js-review-progress").textContent = formatReviewProgress();
 
@@ -748,6 +807,18 @@ function renderApproval() {
   const notice = root.querySelector(".js-review-notice");
   notice.textContent = state.reviewStatus;
   notice.className = `notice js-review-notice ${state.reviewKind}`;
+}
+
+function syncApprovalInputs() {
+  setInputValueIfNotFocused(approvalSheetUrlInput, state.settings.approvalSheetUrl || "");
+  setInputValueIfNotFocused(approvalLinkColumnInput, state.settings.approvalLinkColumn || "A");
+  setInputValueIfNotFocused(approvalSourceSheetInput, state.settings.approvalSourceSheet || "");
+  setInputValueIfNotFocused(reviewerEmailInput, state.settings.reviewerEmail || "");
+}
+
+function setInputValueIfNotFocused(input, value) {
+  if (root.activeElement === input) return;
+  input.value = value;
 }
 
 function formatReviewProgress() {
@@ -937,6 +1008,42 @@ function overlayCss() {
       margin-bottom: 8px;
       color: #f6f7f9;
       font-weight: 800;
+    }
+    .approval-field {
+      display: block;
+      margin: 8px 0;
+      color: #aeb6c2;
+    }
+    .approval-field span {
+      display: block;
+      margin-bottom: 4px;
+      font-size: 11px;
+    }
+    .approval-field input {
+      width: 100%;
+      box-sizing: border-box;
+      border: 1px solid rgba(255,255,255,.16);
+      border-radius: 6px;
+      background: #0d0f14;
+      color: #f6f7f9;
+      padding: 7px;
+      font: inherit;
+    }
+    .approval-grid {
+      display: grid;
+      grid-template-columns: 0.8fr 1.2fr;
+      gap: 8px;
+    }
+    .connect-sheet {
+      width: 100%;
+      height: 34px;
+      border: 0;
+      border-radius: 6px;
+      margin: 2px 0 8px;
+      background: #7c3aed;
+      color: white;
+      font-weight: 800;
+      cursor: pointer;
     }
     .review-next {
       width: 100%;
