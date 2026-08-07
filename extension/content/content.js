@@ -51,6 +51,10 @@ root.innerHTML = `
       <button class="icon js-toggle-compact" title="Compact mode" aria-label="Compact mode">-</button>
     </header>
     <main class="body">
+      <label class="mode-toggle">
+        <span>Approval Mode</span>
+        <input class="js-approval-mode-toggle" type="checkbox">
+      </label>
       <div class="line"><span>Username</span><strong class="js-username">-</strong></div>
       <div class="line"><span>Followers</span><strong class="js-followers">-</strong></div>
       <div class="line"><span>Status</span><strong class="js-qualified">-</strong></div>
@@ -93,6 +97,7 @@ const dragHandle = root.querySelector(".drag");
 const saveButton = root.querySelector(".js-save");
 const notesInput = root.querySelector(".js-notes");
 const compactButton = root.querySelector(".js-toggle-compact");
+const approvalModeToggle = root.querySelector(".js-approval-mode-toggle");
 const reviewNextButton = root.querySelector(".js-review-next");
 const approveButton = root.querySelector(".js-approve");
 const rejectButton = root.querySelector(".js-reject");
@@ -112,6 +117,14 @@ async function init() {
 
 function bindEvents() {
   saveButton.addEventListener("click", () => saveCurrentLead());
+  approvalModeToggle.addEventListener("change", async () => {
+    state.settings.approvalMode = approvalModeToggle.checked;
+    state.rejectConfirming = false;
+    state.reviewStatus = state.settings.approvalMode ? "Approval Mode on" : "";
+    state.reviewKind = state.settings.approvalMode ? "success" : "";
+    await sendMessage("SAVE_SETTINGS", { settings: { approvalMode: state.settings.approvalMode } });
+    render();
+  });
   reviewNextButton.addEventListener("click", () => openNextReviewLink());
   approveButton.addEventListener("click", () => recordReviewDecision("APPROVED"));
   rejectButton.addEventListener("click", () => {
@@ -684,7 +697,8 @@ async function refreshStats() {
 
 function render() {
   panel.classList.toggle("compact", Boolean(state.settings.compactMode));
-  root.querySelector(".js-mode").textContent = state.settings.autoSave ? "Auto" : "Manual";
+  root.querySelector(".js-mode").textContent = state.settings.approvalMode ? "Approval" : state.settings.autoSave ? "Auto" : "Manual";
+  approvalModeToggle.checked = Boolean(state.settings.approvalMode);
   root.querySelector(".js-daily-goal").textContent = state.settings.dailyGoal;
   root.querySelector(".js-saved-today").textContent = state.savedToday;
 
@@ -839,6 +853,25 @@ function overlayCss() {
       cursor: pointer;
     }
     .body { padding: 12px; }
+    .mode-toggle {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 10px;
+      border: 1px solid rgba(255,255,255,.12);
+      border-radius: 6px;
+      padding: 8px;
+      color: #d5dae1;
+      background: rgba(255,255,255,.04);
+    }
+    .mode-toggle input {
+      width: 34px;
+      height: 18px;
+      margin: 0;
+      accent-color: #18a058;
+      cursor: pointer;
+    }
     .line {
       display: flex;
       justify-content: space-between;
