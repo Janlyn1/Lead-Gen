@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "TikTok Lead Collector Pro",
-  "version": "1.1.5",
+  "version": "1.1.6",
   "description": "Collect qualified TikTok creator profile URLs into Google Sheets while browsing manually.",
   "permissions": ["storage"],
   "host_permissions": [

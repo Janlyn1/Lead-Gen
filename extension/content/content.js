@@ -53,33 +53,37 @@ root.innerHTML = `
     </header>
     <main class="body">
       <section class="account js-account">
-        <div class="approval-title">Account Login</div>
-        <label class="approval-field">
-          <span>Admin Google Sheet URL</span>
-          <input class="js-approval-sheet-url" type="url" placeholder="Paste Google Sheet link">
-        </label>
-        <div class="approval-grid">
-          <label class="approval-field">
-            <span>Link Column</span>
-            <input class="js-approval-link-column" type="text" placeholder="A">
-          </label>
-          <label class="approval-field">
-            <span>Source Tab</span>
-            <input class="js-approval-source-sheet" type="text" placeholder="Optional">
-          </label>
-        </div>
+        <div class="approval-title">Login with Google</div>
+        <p class="login-copy">Use a Gmail listed in the Admin sheet.</p>
         <label class="approval-field">
           <span>Gmail</span>
           <input class="js-reviewer-email-input" type="email" placeholder="name@gmail.com">
         </label>
         <div class="login-row">
-          <button class="connect-sheet js-login-review">LOGIN</button>
+          <button class="connect-sheet js-login-review">LOGIN WITH GOOGLE</button>
           <button class="logout-review js-logout-review">LOGOUT</button>
         </div>
         <div class="line"><span>Gmail</span><strong class="js-reviewer">-</strong></div>
+        <details class="advanced-settings">
+          <summary>Sheet settings</summary>
+          <label class="approval-field">
+            <span>Admin Google Sheet URL</span>
+            <input class="js-approval-sheet-url" type="url" placeholder="Paste Google Sheet link">
+          </label>
+          <div class="approval-grid">
+            <label class="approval-field">
+              <span>Link Column</span>
+              <input class="js-approval-link-column" type="text" placeholder="D">
+            </label>
+            <label class="approval-field">
+              <span>Source Tab</span>
+              <input class="js-approval-source-sheet" type="text" placeholder="Optional">
+            </label>
+          </div>
+        </details>
         <div class="notice js-review-notice"></div>
       </section>
-      <label class="mode-toggle">
+      <label class="mode-toggle js-mode-toggle">
         <span>Approval Mode</span>
         <input class="js-approval-mode-toggle" type="checkbox">
       </label>
@@ -773,7 +777,7 @@ async function saveApprovalSettingsFromOverlay(options = {}) {
     approvalLinkColumn: approvalLinkColumnInput.value.trim() || "D",
     approvalSourceSheet: approvalSourceSheetInput.value.trim(),
     reviewerEmail: reviewerEmailInput.value.trim().toLowerCase(),
-    approvalMode: true
+    approvalMode: state.settings.approvalMode
   };
 
   state.settings = { ...state.settings, ...next };
@@ -821,6 +825,7 @@ function render() {
   root.querySelector(".js-mode").textContent = !state.reviewLoggedIn ? "Logged out" : state.settings.approvalMode ? "Approval" : state.settings.autoSave ? "Auto" : "Manual";
   approvalModeToggle.checked = Boolean(state.settings.approvalMode);
   renderAccount();
+  root.querySelector(".js-mode-toggle").classList.toggle("hidden", !state.reviewLoggedIn);
   root.querySelector(".js-lead-mode").classList.toggle("hidden", !state.reviewLoggedIn || Boolean(state.settings.approvalMode));
   root.querySelector(".js-daily-goal").textContent = state.settings.dailyGoal;
   root.querySelector(".js-saved-today").textContent = state.savedToday;
@@ -855,6 +860,8 @@ function renderAccount() {
   root.querySelector(".js-reviewer").textContent = state.reviewLoggedIn ? state.settings.reviewerEmail || "Logged in" : "Logged out";
   loginReviewButton.disabled = state.reviewBusy || !hasApprovalSettings();
   logoutReviewButton.disabled = state.reviewBusy || !state.reviewLoggedIn;
+  loginReviewButton.classList.toggle("hidden", state.reviewLoggedIn);
+  logoutReviewButton.classList.toggle("hidden", !state.reviewLoggedIn);
 
   const notice = root.querySelector(".js-review-notice");
   notice.textContent = state.reviewStatus;
@@ -1019,6 +1026,11 @@ function overlayCss() {
       margin-bottom: 10px;
       border-bottom: 1px solid rgba(255,255,255,.12);
     }
+    .login-copy {
+      margin: -2px 0 8px;
+      color: #aeb6c2;
+      font-size: 12px;
+    }
     .line {
       display: flex;
       justify-content: space-between;
@@ -1112,7 +1124,7 @@ function overlayCss() {
     }
     .login-row {
       display: grid;
-      grid-template-columns: 1.2fr .8fr;
+      grid-template-columns: 1fr;
       gap: 8px;
       margin: 2px 0 8px;
     }
@@ -1127,6 +1139,14 @@ function overlayCss() {
     }
     .connect-sheet { background: #7c3aed; }
     .logout-review { background: #39404b; }
+    .advanced-settings {
+      margin: 8px 0 0;
+      color: #aeb6c2;
+      font-size: 12px;
+    }
+    .advanced-settings summary {
+      color: #8d96a3;
+    }
     .review-next {
       width: 100%;
       height: 34px;
