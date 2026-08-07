@@ -279,13 +279,22 @@ export class SheetsService {
     }
 
     if (!response.ok || data.ok === false) {
-      const error = new Error(data.error || `Apps Script request failed with ${response.status}`);
-      error.statusCode = response.ok ? 502 : response.status;
+      const message = data.error || `Apps Script request failed with ${response.status}`;
+      const error = new Error(formatAppsScriptError(message));
+      error.statusCode = response.ok ? 400 : response.status;
       throw error;
     }
 
     return data;
   }
+}
+
+function formatAppsScriptError(message) {
+  if (/Unsupported action:\s*loginReviewAccount/i.test(message)) {
+    return "Apps Script is not updated yet. Redeploy the latest Code.gs, then try Login with Google again.";
+  }
+
+  return message;
 }
 
 function columnLetter(index) {
