@@ -211,6 +211,16 @@ export class SheetsService {
     return this.requestAppsScript("getReviewNext", normalizeReviewSettings(settings));
   }
 
+  async loginReviewAccount(settings) {
+    if (!hasAppsScriptCredentials) {
+      const error = new Error("Approval review requires APPS_SCRIPT_WEB_APP_URL.");
+      error.statusCode = 503;
+      throw error;
+    }
+
+    return this.requestAppsScript("loginReviewAccount", normalizeReviewSettings(settings));
+  }
+
   async recordReviewDecision(input) {
     if (!hasAppsScriptCredentials) {
       const error = new Error("Approval review requires APPS_SCRIPT_WEB_APP_URL.");

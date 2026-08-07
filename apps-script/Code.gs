@@ -104,6 +104,10 @@ function doPost(e) {
       return json_(getReviewNext_(payload));
     }
 
+    if (action === "loginReviewAccount") {
+      return json_(loginReviewAccount_(payload));
+    }
+
     if (action === "recordReviewDecision") {
       return json_(recordReviewDecision_(payload));
     }
@@ -249,6 +253,18 @@ function getReviewNext_(payload) {
   };
 }
 
+function loginReviewAccount_(payload) {
+  const context = getReviewContext_(payload);
+  touchAdminAccount_(context.spreadsheet, context.reviewerEmail, context.reviewerSheetName);
+
+  return {
+    ok: true,
+    loggedIn: true,
+    reviewerEmail: context.reviewerEmail,
+    reviewerSheet: context.reviewerSheetName
+  };
+}
+
 function recordReviewDecision_(payload) {
   const context = getReviewContext_(payload);
   const decision = String(payload.decision || "").toUpperCase();
@@ -289,10 +305,12 @@ function getReviewContext_(payload) {
   if (!reviewerEmail) throw new Error("Google account email is required.");
 
   const spreadsheet = SpreadsheetApp.openById(spreadsheetId);
+  ensureSheetInSpreadsheet_(spreadsheet, ADMIN_SHEET, ADMIN_HEADERS);
+  assertAdminAccountAllowed_(spreadsheet, reviewerEmail);
+
   const sourceSheet = getSourceSheet_(spreadsheet, payload.sourceSheetName || "", payload.spreadsheetUrl || payload.sheetUrl || "");
   const reviewerSheetName = safeSheetName_(reviewerEmail);
   const reviewerSheet = ensureSheetInSpreadsheet_(spreadsheet, reviewerSheetName, REVIEW_HEADERS);
-  ensureSheetInSpreadsheet_(spreadsheet, ADMIN_SHEET, ADMIN_HEADERS);
 
   return {
     spreadsheet: spreadsheet,
@@ -398,6 +416,21 @@ function touchAdminAccount_(spreadsheet, email, sheetName) {
     }
   }
   sheet.appendRow([email, sheetName, now, now]);
+}
+
+function assertAdminAccountAllowed_(spreadsheet, email) {
+  const sheet = ensureSheetInSpreadsheet_(spreadsheet, ADMIN_SHEET, ADMIN_HEADERS);
+  const lastRow = sheet.getLastRow();
+  if (lastRow < 2) return;
+
+  const emails = sheet.getRange(2, 1, lastRow - 1, 1).getValues().map(function(row) {
+    return String(row[0] || "").trim().toLowerCase();
+  }).filter(Boolean);
+
+  if (emails.length === 0) return;
+  if (emails.indexOf(email) === -1) {
+    throw new Error("This Gmail is not listed in the Admin sheet: " + email);
+  }
 }
 
 function ensureSheetInSpreadsheet_(spreadsheet, name, headers) {

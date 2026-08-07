@@ -79,6 +79,15 @@ async function handleMessage(message) {
     });
   }
 
+  if (message.type === "REVIEW_LOGIN") {
+    const { apiBaseUrl } = await getSettings();
+    return requestJson(`${apiBaseUrl}/api/review/login`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(message.payload)
+    });
+  }
+
   if (message.type === "REVIEW_DECISION") {
     const { apiBaseUrl } = await getSettings();
     return requestJson(`${apiBaseUrl}/api/review/decision`, {

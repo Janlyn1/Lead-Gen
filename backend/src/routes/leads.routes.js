@@ -89,6 +89,15 @@ leadsRouter.post("/review/next", async (req, res, next) => {
   }
 });
 
+leadsRouter.post("/review/login", async (req, res, next) => {
+  try {
+    res.json(await sheetsService.loginReviewAccount(req.body || {}));
+  } catch (error) {
+    error.statusCode = error.statusCode || 400;
+    next(error);
+  }
+});
+
 leadsRouter.post("/review/decision", async (req, res, next) => {
   try {
     const decision = String(req.body?.decision || "").toUpperCase();

@@ -30,6 +30,7 @@ const state = {
   reviewProgress: null,
   rejectConfirming: false,
   reviewBusy: false,
+  reviewLoggedIn: false,
   dragging: false,
   offsetX: 0,
   offsetY: 0
@@ -55,21 +56,23 @@ root.innerHTML = `
         <span>Approval Mode</span>
         <input class="js-approval-mode-toggle" type="checkbox">
       </label>
-      <div class="line"><span>Username</span><strong class="js-username">-</strong></div>
-      <div class="line"><span>Followers</span><strong class="js-followers">-</strong></div>
-      <div class="line"><span>Status</span><strong class="js-qualified">-</strong></div>
-      <div class="bio js-bio"></div>
-      <label class="note">
-        <span>Notes</span>
-        <textarea class="js-notes" maxlength="500" rows="2" placeholder="Optional"></textarea>
-      </label>
-      <div class="line goal"><span>Saved Today</span><strong><span class="js-saved-today">0</span>/<span class="js-daily-goal">300</span></strong></div>
-      <button class="save js-save">SAVE</button>
-      <div class="notice js-notice"></div>
-      <details class="recent">
-        <summary>Recently Saved</summary>
-        <ol class="js-recent"></ol>
-      </details>
+      <section class="lead-mode js-lead-mode">
+        <div class="line"><span>Username</span><strong class="js-username">-</strong></div>
+        <div class="line"><span>Followers</span><strong class="js-followers">-</strong></div>
+        <div class="line"><span>Status</span><strong class="js-qualified">-</strong></div>
+        <div class="bio js-bio"></div>
+        <label class="note">
+          <span>Notes</span>
+          <textarea class="js-notes" maxlength="500" rows="2" placeholder="Optional"></textarea>
+        </label>
+        <div class="line goal"><span>Saved Today</span><strong><span class="js-saved-today">0</span>/<span class="js-daily-goal">300</span></strong></div>
+        <button class="save js-save">SAVE</button>
+        <div class="notice js-notice"></div>
+        <details class="recent">
+          <summary>Recently Saved</summary>
+          <ol class="js-recent"></ol>
+        </details>
+      </section>
       <section class="approval js-approval">
         <div class="approval-title">Approval Review</div>
         <label class="approval-field">
@@ -90,7 +93,10 @@ root.innerHTML = `
           <span>Reviewer Gmail</span>
           <input class="js-reviewer-email-input" type="email" placeholder="name@gmail.com">
         </label>
-        <button class="connect-sheet js-connect-sheet">CONNECT SHEET</button>
+        <div class="login-row">
+          <button class="connect-sheet js-login-review">LOGIN / CONNECT</button>
+          <button class="logout-review js-logout-review">LOGOUT</button>
+        </div>
         <div class="line"><span>Gmail</span><strong class="js-reviewer">-</strong></div>
         <div class="line"><span>Progress</span><strong class="js-review-progress">-</strong></div>
         <button class="review-next js-review-next">START / NEXT LINK</button>
@@ -121,7 +127,8 @@ const approvalSheetUrlInput = root.querySelector(".js-approval-sheet-url");
 const approvalLinkColumnInput = root.querySelector(".js-approval-link-column");
 const approvalSourceSheetInput = root.querySelector(".js-approval-source-sheet");
 const reviewerEmailInput = root.querySelector(".js-reviewer-email-input");
-const connectSheetButton = root.querySelector(".js-connect-sheet");
+const loginReviewButton = root.querySelector(".js-login-review");
+const logoutReviewButton = root.querySelector(".js-logout-review");
 const reviewNextButton = root.querySelector(".js-review-next");
 const approveButton = root.querySelector(".js-approve");
 const rejectButton = root.querySelector(".js-reject");
@@ -149,7 +156,8 @@ function bindEvents() {
     await sendMessage("SAVE_SETTINGS", { settings: { approvalMode: state.settings.approvalMode } });
     render();
   });
-  connectSheetButton.addEventListener("click", () => saveApprovalSettingsFromOverlay());
+  loginReviewButton.addEventListener("click", () => loginReviewAccount());
+  logoutReviewButton.addEventListener("click", () => logoutReviewAccount());
   reviewNextButton.addEventListener("click", () => openNextReviewLink());
   approveButton.addEventListener("click", () => recordReviewDecision("APPROVED"));
   rejectButton.addEventListener("click", () => {
@@ -601,7 +609,7 @@ function getButtonLabel(node) {
 }
 
 async function openNextReviewLink() {
-  if (!(await saveApprovalSettingsFromOverlay({ silent: true }))) {
+  if (!state.reviewLoggedIn && !(await loginReviewAccount({ silent: true }))) {
     renderApproval();
     return;
   }
@@ -643,9 +651,7 @@ async function openNextReviewLink() {
 }
 
 async function recordReviewDecision(decision) {
-  if (!hasApprovalSettings()) {
-    state.reviewStatus = "Set approval settings first.";
-    state.reviewKind = "error";
+  if (!state.reviewLoggedIn && !(await loginReviewAccount({ silent: true }))) {
     renderApproval();
     return;
   }
@@ -695,6 +701,49 @@ async function recordReviewDecision(decision) {
   renderApproval();
 }
 
+async function loginReviewAccount(options = {}) {
+  if (!(await saveApprovalSettingsFromOverlay({ silent: true, skipRender: true }))) {
+    state.reviewLoggedIn = false;
+    if (!options.silent) {
+      state.reviewStatus = "Sheet URL, link column, and Gmail are required.";
+      state.reviewKind = "error";
+    }
+    renderApproval();
+    return false;
+  }
+
+  setReviewBusy(true);
+  state.reviewStatus = "Logging in...";
+  state.reviewKind = "muted";
+  renderApproval();
+
+  const response = await sendMessage("REVIEW_LOGIN", approvalPayload());
+  setReviewBusy(false);
+
+  if (!response.ok || !response.loggedIn) {
+    state.reviewLoggedIn = false;
+    state.reviewStatus = response.error || "Login failed. Check Admin sheet.";
+    state.reviewKind = "error";
+    renderApproval();
+    return false;
+  }
+
+  state.reviewLoggedIn = true;
+  state.reviewStatus = `Logged in: ${response.reviewerSheet || state.settings.reviewerEmail}`;
+  state.reviewKind = "success";
+  renderApproval();
+  return true;
+}
+
+async function logoutReviewAccount() {
+  state.reviewLoggedIn = false;
+  state.reviewProgress = null;
+  state.rejectConfirming = false;
+  state.reviewStatus = "Logged out";
+  state.reviewKind = "muted";
+  renderApproval();
+}
+
 function approvalPayload() {
   return {
     spreadsheetUrl: state.settings.approvalSheetUrl,
@@ -728,7 +777,7 @@ async function saveApprovalSettingsFromOverlay(options = {}) {
     state.reviewStatus = "Sheet connected";
     state.reviewKind = "success";
   }
-  renderApproval();
+  if (!options.skipRender) renderApproval();
   return true;
 }
 
@@ -757,6 +806,7 @@ function render() {
   panel.classList.toggle("compact", Boolean(state.settings.compactMode));
   root.querySelector(".js-mode").textContent = state.settings.approvalMode ? "Approval" : state.settings.autoSave ? "Auto" : "Manual";
   approvalModeToggle.checked = Boolean(state.settings.approvalMode);
+  root.querySelector(".js-lead-mode").classList.toggle("hidden", Boolean(state.settings.approvalMode));
   root.querySelector(".js-daily-goal").textContent = state.settings.dailyGoal;
   root.querySelector(".js-saved-today").textContent = state.savedToday;
 
@@ -791,13 +841,15 @@ function renderApproval() {
   if (!state.settings.approvalMode) return;
 
   syncApprovalInputs();
-  root.querySelector(".js-reviewer").textContent = state.settings.reviewerEmail || "Set Gmail";
+  root.querySelector(".js-reviewer").textContent = state.reviewLoggedIn ? state.settings.reviewerEmail || "Logged in" : "Logged out";
   root.querySelector(".js-review-progress").textContent = formatReviewProgress();
 
   const canDecide = Boolean(currentReviewUrl()) && hasApprovalSettings();
-  approveButton.disabled = state.reviewBusy || !canDecide;
-  rejectButton.disabled = state.reviewBusy || !canDecide;
-  reviewNextButton.disabled = state.reviewBusy || !hasApprovalSettings();
+  loginReviewButton.disabled = state.reviewBusy || !hasApprovalSettings();
+  logoutReviewButton.disabled = state.reviewBusy || !state.reviewLoggedIn;
+  approveButton.disabled = state.reviewBusy || !state.reviewLoggedIn || !canDecide;
+  rejectButton.disabled = state.reviewBusy || !state.reviewLoggedIn || !canDecide;
+  reviewNextButton.disabled = state.reviewBusy || !state.reviewLoggedIn || !hasApprovalSettings();
   rejectYesButton.disabled = state.reviewBusy;
   rejectNoButton.disabled = state.reviewBusy;
 
@@ -1034,17 +1086,23 @@ function overlayCss() {
       grid-template-columns: 0.8fr 1.2fr;
       gap: 8px;
     }
-    .connect-sheet {
+    .login-row {
+      display: grid;
+      grid-template-columns: 1.2fr .8fr;
+      gap: 8px;
+      margin: 2px 0 8px;
+    }
+    .connect-sheet, .logout-review {
       width: 100%;
       height: 34px;
       border: 0;
       border-radius: 6px;
-      margin: 2px 0 8px;
-      background: #7c3aed;
       color: white;
       font-weight: 800;
       cursor: pointer;
     }
+    .connect-sheet { background: #7c3aed; }
+    .logout-review { background: #39404b; }
     .review-next {
       width: 100%;
       height: 34px;
