@@ -9,7 +9,7 @@ const DEFAULT_SETTINGS = {
   approvalMode: false,
   approvalSheetUrl: "https://docs.google.com/spreadsheets/d/1ZU2ys_mtxpVZW-zke3QUJ4E7K0ESYS5hZzDqEf3CPC4/edit?gid=0#gid=0",
   approvalSourceSheet: "",
-  approvalLinkColumn: "A",
+  approvalLinkColumn: "D",
   reviewerEmail: ""
 };
 
@@ -61,7 +61,7 @@ async function saveSettings() {
     approvalMode: fields.approvalMode.checked,
     approvalSheetUrl: fields.approvalSheetUrl.value.trim(),
     approvalSourceSheet: fields.approvalSourceSheet.value.trim(),
-    approvalLinkColumn: fields.approvalLinkColumn.value.trim() || "A",
+    approvalLinkColumn: fields.approvalLinkColumn.value.trim() || "D",
     reviewerEmail: fields.reviewerEmail.value.trim().toLowerCase()
   };
 

@@ -319,7 +319,7 @@ function normalizeReviewSettings(settings = {}) {
   return {
     spreadsheetUrl: String(settings.spreadsheetUrl || settings.sheetUrl || "").trim(),
     sourceSheetName: String(settings.sourceSheetName || "").trim(),
-    linkColumn: String(settings.linkColumn || "A").trim(),
+    linkColumn: String(settings.linkColumn || "D").trim(),
     reviewerEmail: String(settings.reviewerEmail || "").trim().toLowerCase()
   };
 }

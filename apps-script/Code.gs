@@ -297,7 +297,7 @@ function getReviewContext_(payload) {
   return {
     spreadsheet: spreadsheet,
     sourceSheet: sourceSheet,
-    linkColumn: String(payload.linkColumn || "A").trim(),
+    linkColumn: String(payload.linkColumn || "D").trim(),
     reviewerEmail: reviewerEmail,
     reviewerSheetName: reviewerSheetName,
     reviewerSheet: reviewerSheet
@@ -341,7 +341,7 @@ function getReviewSourceRows_(sheet, linkColumn) {
 }
 
 function resolveColumnIndex_(sheet, linkColumn) {
-  const value = String(linkColumn || "A").trim();
+  const value = String(linkColumn || "D").trim();
   if (/^\d+$/.test(value)) return Number(value);
   if (/^[A-Za-z]+$/.test(value)) return columnNameToIndex_(value);
 
@@ -437,7 +437,7 @@ function isReviewSheet_(sheet) {
 }
 
 function columnNameToIndex_(name) {
-  return String(name || "A").toUpperCase().split("").reduce(function(total, char) {
+  return String(name || "D").toUpperCase().split("").reduce(function(total, char) {
     return total * 26 + char.charCodeAt(0) - 64;
   }, 0);
 }

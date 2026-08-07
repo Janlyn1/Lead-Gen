@@ -9,7 +9,7 @@ const DEFAULT_SETTINGS = {
   approvalMode: false,
   approvalSheetUrl: "https://docs.google.com/spreadsheets/d/1ZU2ys_mtxpVZW-zke3QUJ4E7K0ESYS5hZzDqEf3CPC4/edit?gid=0#gid=0",
   approvalSourceSheet: "",
-  approvalLinkColumn: "A",
+  approvalLinkColumn: "D",
   reviewerEmail: ""
 };
 
@@ -707,7 +707,7 @@ function approvalPayload() {
 async function saveApprovalSettingsFromOverlay(options = {}) {
   const next = {
     approvalSheetUrl: approvalSheetUrlInput.value.trim(),
-    approvalLinkColumn: approvalLinkColumnInput.value.trim() || "A",
+    approvalLinkColumn: approvalLinkColumnInput.value.trim() || "D",
     approvalSourceSheet: approvalSourceSheetInput.value.trim(),
     reviewerEmail: reviewerEmailInput.value.trim().toLowerCase(),
     approvalMode: true
@@ -811,7 +811,7 @@ function renderApproval() {
 
 function syncApprovalInputs() {
   setInputValueIfNotFocused(approvalSheetUrlInput, state.settings.approvalSheetUrl || "");
-  setInputValueIfNotFocused(approvalLinkColumnInput, state.settings.approvalLinkColumn || "A");
+  setInputValueIfNotFocused(approvalLinkColumnInput, state.settings.approvalLinkColumn || "D");
   setInputValueIfNotFocused(approvalSourceSheetInput, state.settings.approvalSourceSheet || "");
   setInputValueIfNotFocused(reviewerEmailInput, state.settings.reviewerEmail || "");
 }

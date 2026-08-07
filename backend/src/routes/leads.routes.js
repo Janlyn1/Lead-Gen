@@ -84,6 +84,7 @@ leadsRouter.post("/review/next", async (req, res, next) => {
   try {
     res.json(await sheetsService.getReviewNext(req.body || {}));
   } catch (error) {
+    error.statusCode = error.statusCode || 400;
     next(error);
   }
 });
@@ -103,6 +104,7 @@ leadsRouter.post("/review/decision", async (req, res, next) => {
 
     res.json(await sheetsService.recordReviewDecision({ ...req.body, decision }));
   } catch (error) {
+    error.statusCode = error.statusCode || 400;
     next(error);
   }
 });

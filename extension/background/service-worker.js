@@ -11,7 +11,7 @@ const DEFAULT_SETTINGS = {
   approvalMode: false,
   approvalSheetUrl: "https://docs.google.com/spreadsheets/d/1ZU2ys_mtxpVZW-zke3QUJ4E7K0ESYS5hZzDqEf3CPC4/edit?gid=0#gid=0",
   approvalSourceSheet: "",
-  approvalLinkColumn: "A",
+  approvalLinkColumn: "D",
   reviewerEmail: ""
 };
 
@@ -122,7 +122,7 @@ function sanitizeSettings(settings) {
   if (typeof settings.approvalMode === "boolean") next.approvalMode = settings.approvalMode;
   if (typeof settings.approvalSheetUrl === "string") next.approvalSheetUrl = settings.approvalSheetUrl.trim();
   if (typeof settings.approvalSourceSheet === "string") next.approvalSourceSheet = settings.approvalSourceSheet.trim();
-  if (typeof settings.approvalLinkColumn === "string") next.approvalLinkColumn = settings.approvalLinkColumn.trim() || "A";
+  if (typeof settings.approvalLinkColumn === "string") next.approvalLinkColumn = settings.approvalLinkColumn.trim() || "D";
   if (typeof settings.reviewerEmail === "string") next.reviewerEmail = settings.reviewerEmail.trim().toLowerCase();
   return normalizeSettings(next);
 }
