@@ -52,6 +52,33 @@ root.innerHTML = `
       <button class="icon js-toggle-compact" title="Compact mode" aria-label="Compact mode">-</button>
     </header>
     <main class="body">
+      <section class="account js-account">
+        <div class="approval-title">Account Login</div>
+        <label class="approval-field">
+          <span>Admin Google Sheet URL</span>
+          <input class="js-approval-sheet-url" type="url" placeholder="Paste Google Sheet link">
+        </label>
+        <div class="approval-grid">
+          <label class="approval-field">
+            <span>Link Column</span>
+            <input class="js-approval-link-column" type="text" placeholder="A">
+          </label>
+          <label class="approval-field">
+            <span>Source Tab</span>
+            <input class="js-approval-source-sheet" type="text" placeholder="Optional">
+          </label>
+        </div>
+        <label class="approval-field">
+          <span>Gmail</span>
+          <input class="js-reviewer-email-input" type="email" placeholder="name@gmail.com">
+        </label>
+        <div class="login-row">
+          <button class="connect-sheet js-login-review">LOGIN</button>
+          <button class="logout-review js-logout-review">LOGOUT</button>
+        </div>
+        <div class="line"><span>Gmail</span><strong class="js-reviewer">-</strong></div>
+        <div class="notice js-review-notice"></div>
+      </section>
       <label class="mode-toggle">
         <span>Approval Mode</span>
         <input class="js-approval-mode-toggle" type="checkbox">
@@ -75,29 +102,6 @@ root.innerHTML = `
       </section>
       <section class="approval js-approval">
         <div class="approval-title">Approval Review</div>
-        <label class="approval-field">
-          <span>Google Sheet URL</span>
-          <input class="js-approval-sheet-url" type="url" placeholder="Paste Google Sheet link">
-        </label>
-        <div class="approval-grid">
-          <label class="approval-field">
-            <span>Link Column</span>
-            <input class="js-approval-link-column" type="text" placeholder="A">
-          </label>
-          <label class="approval-field">
-            <span>Source Tab</span>
-            <input class="js-approval-source-sheet" type="text" placeholder="Optional">
-          </label>
-        </div>
-        <label class="approval-field">
-          <span>Reviewer Gmail</span>
-          <input class="js-reviewer-email-input" type="email" placeholder="name@gmail.com">
-        </label>
-        <div class="login-row">
-          <button class="connect-sheet js-login-review">LOGIN / CONNECT</button>
-          <button class="logout-review js-logout-review">LOGOUT</button>
-        </div>
-        <div class="line"><span>Gmail</span><strong class="js-reviewer">-</strong></div>
         <div class="line"><span>Progress</span><strong class="js-review-progress">-</strong></div>
         <button class="review-next js-review-next">START / NEXT LINK</button>
         <div class="decision-row js-decision-row">
@@ -111,7 +115,6 @@ root.innerHTML = `
             <button class="reject-no js-reject-no">NO</button>
           </div>
         </div>
-        <div class="notice js-review-notice"></div>
       </section>
     </main>
   </section>
@@ -474,6 +477,12 @@ async function checkDuplicate(profile) {
 }
 
 async function saveCurrentLead() {
+  if (!state.reviewLoggedIn) {
+    state.statusText = "Login first";
+    state.statusKind = "error";
+    render();
+    return;
+  }
   if (!state.profile || !isQualified() || state.duplicate) return;
 
   saveButton.disabled = true;
@@ -502,6 +511,7 @@ async function saveCurrentLead() {
 }
 
 async function maybeAutoSave() {
+  if (!state.reviewLoggedIn) return;
   if (!state.settings.autoSave || !state.profile || !isQualified() || state.duplicate) return;
   if (state.autoSavedUrls.has(state.profile.tiktokUrl)) return;
   state.autoSavedUrls.add(state.profile.tiktokUrl);
@@ -609,7 +619,9 @@ function getButtonLabel(node) {
 }
 
 async function openNextReviewLink() {
-  if (!state.reviewLoggedIn && !(await loginReviewAccount({ silent: true }))) {
+  if (!state.reviewLoggedIn) {
+    state.reviewStatus = "Login first.";
+    state.reviewKind = "error";
     renderApproval();
     return;
   }
@@ -651,7 +663,9 @@ async function openNextReviewLink() {
 }
 
 async function recordReviewDecision(decision) {
-  if (!state.reviewLoggedIn && !(await loginReviewAccount({ silent: true }))) {
+  if (!state.reviewLoggedIn) {
+    state.reviewStatus = "Login first.";
+    state.reviewKind = "error";
     renderApproval();
     return;
   }
@@ -708,14 +722,14 @@ async function loginReviewAccount(options = {}) {
       state.reviewStatus = "Sheet URL, link column, and Gmail are required.";
       state.reviewKind = "error";
     }
-    renderApproval();
+    renderAccount();
     return false;
   }
 
   setReviewBusy(true);
   state.reviewStatus = "Logging in...";
   state.reviewKind = "muted";
-  renderApproval();
+  renderAccount();
 
   const response = await sendMessage("REVIEW_LOGIN", approvalPayload());
   setReviewBusy(false);
@@ -724,14 +738,14 @@ async function loginReviewAccount(options = {}) {
     state.reviewLoggedIn = false;
     state.reviewStatus = response.error || "Login failed. Check Admin sheet.";
     state.reviewKind = "error";
-    renderApproval();
+    renderAccount();
     return false;
   }
 
   state.reviewLoggedIn = true;
   state.reviewStatus = `Logged in: ${response.reviewerSheet || state.settings.reviewerEmail}`;
   state.reviewKind = "success";
-  renderApproval();
+  render();
   return true;
 }
 
@@ -741,7 +755,7 @@ async function logoutReviewAccount() {
   state.rejectConfirming = false;
   state.reviewStatus = "Logged out";
   state.reviewKind = "muted";
-  renderApproval();
+  render();
 }
 
 function approvalPayload() {
@@ -804,9 +818,10 @@ async function refreshStats() {
 
 function render() {
   panel.classList.toggle("compact", Boolean(state.settings.compactMode));
-  root.querySelector(".js-mode").textContent = state.settings.approvalMode ? "Approval" : state.settings.autoSave ? "Auto" : "Manual";
+  root.querySelector(".js-mode").textContent = !state.reviewLoggedIn ? "Logged out" : state.settings.approvalMode ? "Approval" : state.settings.autoSave ? "Auto" : "Manual";
   approvalModeToggle.checked = Boolean(state.settings.approvalMode);
-  root.querySelector(".js-lead-mode").classList.toggle("hidden", Boolean(state.settings.approvalMode));
+  renderAccount();
+  root.querySelector(".js-lead-mode").classList.toggle("hidden", !state.reviewLoggedIn || Boolean(state.settings.approvalMode));
   root.querySelector(".js-daily-goal").textContent = state.settings.dailyGoal;
   root.querySelector(".js-saved-today").textContent = state.savedToday;
 
@@ -829,24 +844,32 @@ function render() {
   root.querySelector(".js-qualified").textContent = qualified ? "QUALIFIED" : "NOT QUALIFIED";
   root.querySelector(".js-qualified").className = `js-qualified ${qualified ? "good" : "bad"}`;
   root.querySelector(".js-bio").textContent = state.profile.bio || "";
-  saveButton.disabled = !qualified || state.duplicate;
+  saveButton.disabled = !state.reviewLoggedIn || !qualified || state.duplicate;
   renderRecent();
   renderNotice();
   renderApproval();
 }
 
-function renderApproval() {
-  const approval = root.querySelector(".js-approval");
-  approval.classList.toggle("hidden", !state.settings.approvalMode);
-  if (!state.settings.approvalMode) return;
-
+function renderAccount() {
   syncApprovalInputs();
   root.querySelector(".js-reviewer").textContent = state.reviewLoggedIn ? state.settings.reviewerEmail || "Logged in" : "Logged out";
+  loginReviewButton.disabled = state.reviewBusy || !hasApprovalSettings();
+  logoutReviewButton.disabled = state.reviewBusy || !state.reviewLoggedIn;
+
+  const notice = root.querySelector(".js-review-notice");
+  notice.textContent = state.reviewStatus;
+  notice.className = `notice js-review-notice ${state.reviewKind}`;
+}
+
+function renderApproval() {
+  const approval = root.querySelector(".js-approval");
+  approval.classList.toggle("hidden", !state.reviewLoggedIn || !state.settings.approvalMode);
+  renderAccount();
+  if (!state.reviewLoggedIn || !state.settings.approvalMode) return;
+
   root.querySelector(".js-review-progress").textContent = formatReviewProgress();
 
   const canDecide = Boolean(currentReviewUrl()) && hasApprovalSettings();
-  loginReviewButton.disabled = state.reviewBusy || !hasApprovalSettings();
-  logoutReviewButton.disabled = state.reviewBusy || !state.reviewLoggedIn;
   approveButton.disabled = state.reviewBusy || !state.reviewLoggedIn || !canDecide;
   rejectButton.disabled = state.reviewBusy || !state.reviewLoggedIn || !canDecide;
   reviewNextButton.disabled = state.reviewBusy || !state.reviewLoggedIn || !hasApprovalSettings();
@@ -855,10 +878,6 @@ function renderApproval() {
 
   root.querySelector(".js-decision-row").classList.toggle("hidden", state.rejectConfirming);
   root.querySelector(".js-reject-confirm").classList.toggle("show", state.rejectConfirming);
-
-  const notice = root.querySelector(".js-review-notice");
-  notice.textContent = state.reviewStatus;
-  notice.className = `notice js-review-notice ${state.reviewKind}`;
 }
 
 function syncApprovalInputs() {
@@ -994,6 +1013,11 @@ function overlayCss() {
       margin: 0;
       accent-color: #18a058;
       cursor: pointer;
+    }
+    .account {
+      padding-bottom: 10px;
+      margin-bottom: 10px;
+      border-bottom: 1px solid rgba(255,255,255,.12);
     }
     .line {
       display: flex;
