@@ -5,7 +5,12 @@ const DEFAULT_SETTINGS = {
   autoSkipOutOfRange: true,
   autoSave: false,
   compactMode: false,
-  dailyGoal: 300
+  dailyGoal: 300,
+  approvalMode: false,
+  approvalSheetUrl: "https://docs.google.com/spreadsheets/d/1ZU2ys_mtxpVZW-zke3QUJ4E7K0ESYS5hZzDqEf3CPC4/edit?gid=0#gid=0",
+  approvalSourceSheet: "",
+  approvalLinkColumn: "A",
+  reviewerEmail: ""
 };
 
 const state = {
@@ -20,6 +25,11 @@ const state = {
   autoSavedUrls: new Set(),
   lastAutoSkippedKey: "",
   autoSkipTimer: null,
+  reviewStatus: "",
+  reviewKind: "",
+  reviewProgress: null,
+  rejectConfirming: false,
+  reviewBusy: false,
   dragging: false,
   offsetX: 0,
   offsetY: 0
@@ -56,6 +66,24 @@ root.innerHTML = `
         <summary>Recently Saved</summary>
         <ol class="js-recent"></ol>
       </details>
+      <section class="approval js-approval">
+        <div class="approval-title">Approval Review</div>
+        <div class="line"><span>Gmail</span><strong class="js-reviewer">-</strong></div>
+        <div class="line"><span>Progress</span><strong class="js-review-progress">-</strong></div>
+        <button class="review-next js-review-next">START / NEXT LINK</button>
+        <div class="decision-row js-decision-row">
+          <button class="approve js-approve">APPROVED</button>
+          <button class="reject js-reject">REJECTED</button>
+        </div>
+        <div class="reject-confirm js-reject-confirm">
+          <strong>Are you sure?</strong>
+          <div>
+            <button class="reject-yes js-reject-yes">YES</button>
+            <button class="reject-no js-reject-no">NO</button>
+          </div>
+        </div>
+        <div class="notice js-review-notice"></div>
+      </section>
     </main>
   </section>
 `;
@@ -65,6 +93,11 @@ const dragHandle = root.querySelector(".drag");
 const saveButton = root.querySelector(".js-save");
 const notesInput = root.querySelector(".js-notes");
 const compactButton = root.querySelector(".js-toggle-compact");
+const reviewNextButton = root.querySelector(".js-review-next");
+const approveButton = root.querySelector(".js-approve");
+const rejectButton = root.querySelector(".js-reject");
+const rejectYesButton = root.querySelector(".js-reject-yes");
+const rejectNoButton = root.querySelector(".js-reject-no");
 
 init();
 
@@ -79,6 +112,19 @@ async function init() {
 
 function bindEvents() {
   saveButton.addEventListener("click", () => saveCurrentLead());
+  reviewNextButton.addEventListener("click", () => openNextReviewLink());
+  approveButton.addEventListener("click", () => recordReviewDecision("APPROVED"));
+  rejectButton.addEventListener("click", () => {
+    state.rejectConfirming = true;
+    renderApproval();
+  });
+  rejectYesButton.addEventListener("click", () => recordReviewDecision("REJECTED"));
+  rejectNoButton.addEventListener("click", () => {
+    state.rejectConfirming = false;
+    state.reviewStatus = "Rejected cancelled";
+    state.reviewKind = "muted";
+    renderApproval();
+  });
   compactButton.addEventListener("click", async () => {
     state.settings.compactMode = !state.settings.compactMode;
     await sendMessage("SAVE_SETTINGS", { settings: { compactMode: state.settings.compactMode } });
@@ -125,6 +171,7 @@ function bindEvents() {
     render();
     maybeAutoSave();
     maybeAutoSkipOutOfRange();
+    renderApproval();
   });
 }
 
@@ -416,6 +463,7 @@ async function maybeAutoSave() {
 }
 
 function maybeAutoSkipOutOfRange() {
+  if (state.settings.approvalMode) return;
   if (!state.settings.autoSkipOutOfRange || !state.profile || !state.profile.followersKnown) return;
   if (!isOutOfRange()) return;
 
@@ -514,6 +562,118 @@ function getButtonLabel(node) {
   ].filter(Boolean).join(" ");
 }
 
+async function openNextReviewLink() {
+  if (!hasApprovalSettings()) {
+    state.reviewStatus = "Set Sheet URL, link column, and Gmail in extension settings.";
+    state.reviewKind = "error";
+    renderApproval();
+    return;
+  }
+
+  setReviewBusy(true);
+  state.reviewStatus = "Finding next link...";
+  state.reviewKind = "muted";
+  renderApproval();
+
+  const response = await sendMessage("REVIEW_NEXT", approvalPayload());
+  setReviewBusy(false);
+
+  if (!response.ok) {
+    state.reviewStatus = response.error || "Could not get next link.";
+    state.reviewKind = "error";
+    renderApproval();
+    return;
+  }
+
+  state.reviewProgress = response;
+  if (!response.item?.url) {
+    state.reviewStatus = "No more links to review.";
+    state.reviewKind = "success";
+    renderApproval();
+    return;
+  }
+
+  state.reviewStatus = `Opening row ${response.item.sourceRow}...`;
+  state.reviewKind = "muted";
+  renderApproval();
+  location.assign(response.item.url);
+}
+
+async function recordReviewDecision(decision) {
+  if (!hasApprovalSettings()) {
+    state.reviewStatus = "Set approval settings first.";
+    state.reviewKind = "error";
+    renderApproval();
+    return;
+  }
+
+  const url = currentReviewUrl();
+  if (!url) {
+    state.reviewStatus = "Open a TikTok link before approving or rejecting.";
+    state.reviewKind = "error";
+    renderApproval();
+    return;
+  }
+
+  setReviewBusy(true);
+  state.reviewStatus = `Saving ${decision.toLowerCase()}...`;
+  state.reviewKind = "muted";
+  renderApproval();
+
+  const response = await sendMessage("REVIEW_DECISION", {
+    ...approvalPayload(),
+    url,
+    decision,
+    notes: notesInput.value.trim()
+  });
+  setReviewBusy(false);
+  state.rejectConfirming = false;
+
+  if (!response.ok) {
+    state.reviewStatus = response.error || "Could not save review.";
+    state.reviewKind = "error";
+    renderApproval();
+    return;
+  }
+
+  state.reviewProgress = response;
+  notesInput.value = "";
+
+  if (response.next?.url) {
+    state.reviewStatus = `${decision} saved. Opening next...`;
+    state.reviewKind = "success";
+    renderApproval();
+    location.assign(response.next.url);
+    return;
+  }
+
+  state.reviewStatus = `${decision} saved. No more links.`;
+  state.reviewKind = "success";
+  renderApproval();
+}
+
+function approvalPayload() {
+  return {
+    spreadsheetUrl: state.settings.approvalSheetUrl,
+    sourceSheetName: state.settings.approvalSourceSheet,
+    linkColumn: state.settings.approvalLinkColumn,
+    reviewerEmail: state.settings.reviewerEmail
+  };
+}
+
+function hasApprovalSettings() {
+  return Boolean(state.settings.approvalSheetUrl && state.settings.approvalLinkColumn && state.settings.reviewerEmail);
+}
+
+function currentReviewUrl() {
+  if (/^\/@[^/?#]+/.test(location.pathname)) return location.href;
+  return "";
+}
+
+function setReviewBusy(isBusy) {
+  state.reviewBusy = isBusy;
+}
+
 async function refreshStats() {
   const response = await sendMessage("GET_STATS", {});
   if (response.ok) {
@@ -537,6 +697,7 @@ function render() {
     saveButton.disabled = true;
     renderRecent();
     renderNotice();
+    renderApproval();
     return;
   }
 
@@ -549,6 +710,37 @@ function render() {
   saveButton.disabled = !qualified || state.duplicate;
   renderRecent();
   renderNotice();
+  renderApproval();
+}
+
+function renderApproval() {
+  const approval = root.querySelector(".js-approval");
+  approval.classList.toggle("hidden", !state.settings.approvalMode);
+  if (!state.settings.approvalMode) return;
+
+  root.querySelector(".js-reviewer").textContent = state.settings.reviewerEmail || "Set Gmail";
+  root.querySelector(".js-review-progress").textContent = formatReviewProgress();
+
+  const canDecide = Boolean(currentReviewUrl()) && hasApprovalSettings();
+  approveButton.disabled = state.reviewBusy || !canDecide;
+  rejectButton.disabled = state.reviewBusy || !canDecide;
+  reviewNextButton.disabled = state.reviewBusy || !hasApprovalSettings();
+  rejectYesButton.disabled = state.reviewBusy;
+  rejectNoButton.disabled = state.reviewBusy;
+
+  root.querySelector(".js-decision-row").classList.toggle("hidden", state.rejectConfirming);
+  root.querySelector(".js-reject-confirm").classList.toggle("show", state.rejectConfirming);
+
+  const notice = root.querySelector(".js-review-notice");
+  notice.textContent = state.reviewStatus;
+  notice.className = `notice js-review-notice ${state.reviewKind}`;
+}
+
+function formatReviewProgress() {
+  if (!state.reviewProgress) return "-";
+  const reviewed = state.reviewProgress.reviewed ?? 0;
+  const total = state.reviewProgress.total ?? 0;
+  return `${reviewed}/${total}`;
 }
 
 function renderNotice() {
@@ -702,8 +894,66 @@ function overlayCss() {
     summary { cursor:pointer; }
     ol { margin:6px 0 0; padding-left:20px; color:#d5dae1; }
     li { margin:2px 0; overflow-wrap:anywhere; }
+    .approval {
+      margin-top: 10px;
+      border-top: 1px solid rgba(255,255,255,.12);
+      padding-top: 10px;
+    }
+    .approval.hidden, .hidden { display: none; }
+    .approval-title {
+      margin-bottom: 8px;
+      color: #f6f7f9;
+      font-weight: 800;
+    }
+    .review-next {
+      width: 100%;
+      height: 34px;
+      border: 0;
+      border-radius: 6px;
+      background: #2563eb;
+      color: white;
+      font-weight: 800;
+      cursor: pointer;
+    }
+    .decision-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-top: 8px;
+    }
+    .approve, .reject, .reject-yes, .reject-no {
+      height: 34px;
+      border: 0;
+      border-radius: 6px;
+      color: white;
+      font-weight: 800;
+      cursor: pointer;
+    }
+    .approve { background: #18a058; }
+    .reject, .reject-yes { background: #e11d48; }
+    .reject-no { background: #39404b; }
+    .reject-confirm {
+      display: none;
+      margin-top: 8px;
+      border: 1px solid rgba(251,113,133,.32);
+      border-radius: 6px;
+      padding: 8px;
+      background: rgba(251,113,133,.08);
+    }
+    .reject-confirm.show { display: block; }
+    .reject-confirm > div {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-top: 8px;
+    }
+    button:disabled {
+      background: #39404b;
+      color: #8d96a3;
+      cursor: not-allowed;
+    }
     .compact { width: 210px; }
-    .compact .bio, .compact .note, .compact .goal, .compact .recent, .compact .notice { display:none; }
+    .compact .bio, .compact .note, .compact .goal, .compact .recent, .compact .notice, .compact .approval { display:none; }
     .compact .body { padding: 10px; }
     .compact .line { margin-bottom: 6px; }
   `;

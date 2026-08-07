@@ -7,7 +7,12 @@ const DEFAULT_SETTINGS = {
   autoSkipOutOfRange: true,
   autoSave: false,
   compactMode: false,
-  dailyGoal: 300
+  dailyGoal: 300,
+  approvalMode: false,
+  approvalSheetUrl: "https://docs.google.com/spreadsheets/d/1ZU2ys_mtxpVZW-zke3QUJ4E7K0ESYS5hZzDqEf3CPC4/edit?gid=0#gid=0",
+  approvalSourceSheet: "",
+  approvalLinkColumn: "A",
+  reviewerEmail: ""
 };
 
 chrome.runtime.onInstalled.addListener(async () => {
@@ -65,6 +70,24 @@ async function handleMessage(message) {
     };
   }
 
+  if (message.type === "REVIEW_NEXT") {
+    const { apiBaseUrl } = await getSettings();
+    return requestJson(`${apiBaseUrl}/api/review/next`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(message.payload)
+    });
+  }
+
+  if (message.type === "REVIEW_DECISION") {
+    const { apiBaseUrl } = await getSettings();
+    return requestJson(`${apiBaseUrl}/api/review/decision`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(message.payload)
+    });
+  }
+
   return { ok: false, error: "Unsupported message type" };
 }
 
@@ -96,6 +119,11 @@ function sanitizeSettings(settings) {
   if (typeof settings.autoSave === "boolean") next.autoSave = settings.autoSave;
   if (typeof settings.compactMode === "boolean") next.compactMode = settings.compactMode;
   if (Number.isFinite(Number(settings.dailyGoal))) next.dailyGoal = Number(settings.dailyGoal);
+  if (typeof settings.approvalMode === "boolean") next.approvalMode = settings.approvalMode;
+  if (typeof settings.approvalSheetUrl === "string") next.approvalSheetUrl = settings.approvalSheetUrl.trim();
+  if (typeof settings.approvalSourceSheet === "string") next.approvalSourceSheet = settings.approvalSourceSheet.trim();
+  if (typeof settings.approvalLinkColumn === "string") next.approvalLinkColumn = settings.approvalLinkColumn.trim() || "A";
+  if (typeof settings.reviewerEmail === "string") next.reviewerEmail = settings.reviewerEmail.trim().toLowerCase();
   return normalizeSettings(next);
 }
 

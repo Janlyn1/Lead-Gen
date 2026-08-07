@@ -201,6 +201,32 @@ export class SheetsService {
     });
   }
 
+  async getReviewNext(settings) {
+    if (!hasAppsScriptCredentials) {
+      const error = new Error("Approval review requires APPS_SCRIPT_WEB_APP_URL.");
+      error.statusCode = 503;
+      throw error;
+    }
+
+    return this.requestAppsScript("getReviewNext", normalizeReviewSettings(settings));
+  }
+
+  async recordReviewDecision(input) {
+    if (!hasAppsScriptCredentials) {
+      const error = new Error("Approval review requires APPS_SCRIPT_WEB_APP_URL.");
+      error.statusCode = 503;
+      throw error;
+    }
+
+    return this.requestAppsScript("recordReviewDecision", {
+      ...normalizeReviewSettings(input),
+      url: input.url,
+      decision: input.decision,
+      sourceRow: input.sourceRow,
+      notes: input.notes
+    });
+  }
+
   async getValues(range) {
     const sheets = await this.getClient();
     try {
@@ -266,7 +292,12 @@ function columnLetter(index) {
 export const sheetsService = new SheetsService();
 
 function normalizeTikTokUrlLoose(value) {
-  return String(value || "").trim().replace(/\/$/, "").replace(/^http:\/\//, "https://").replace("https://tiktok.com/", "https://www.tiktok.com/");
+  return String(value || "")
+    .trim()
+    .split(/[?#]/)[0]
+    .replace(/\/$/, "")
+    .replace(/^http:\/\//, "https://")
+    .replace("https://tiktok.com/", "https://www.tiktok.com/");
 }
 
 function usernameFromTikTokUrl(value) {
@@ -282,4 +313,13 @@ function findTikTokUrlInRow(row) {
   return row
     .map((cell) => String(cell || "").trim())
     .find((cell) => /^https?:\/\/(?:www\.)?tiktok\.com\/@[^/?#\s]+/i.test(cell)) || "";
+}
+
+function normalizeReviewSettings(settings = {}) {
+  return {
+    spreadsheetUrl: String(settings.spreadsheetUrl || settings.sheetUrl || "").trim(),
+    sourceSheetName: String(settings.sourceSheetName || "").trim(),
+    linkColumn: String(settings.linkColumn || "A").trim(),
+    reviewerEmail: String(settings.reviewerEmail || "").trim().toLowerCase()
+  };
 }

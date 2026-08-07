@@ -1,6 +1,7 @@
 const EXTENSION_LINK_SHEET = "Extension Link";
 const EXPAND_LINK_SHEET = "Expand Link";
 const EXISTING_SHEET = "Existing";
+const ADMIN_SHEET = "Admin";
 const EXTENSION_HEADERS = ["TikTok URL"];
 const EXPAND_HEADERS = [
   "Full Name",
@@ -13,6 +14,8 @@ const EXPAND_HEADERS = [
   "Date",
   "Notes"
 ];
+const ADMIN_HEADERS = ["Google Account", "Sheet Name", "Created At", "Last Active At"];
+const REVIEW_HEADERS = ["TikTok URL", "Decision", "Reviewed At", "Source Row", "Google Account", "Notes"];
 
 function doGet() {
   return json_({
@@ -97,6 +100,14 @@ function doPost(e) {
       return json_({ ok: true, duplicate: hasLead_(payload.tiktokUrl || "", payload.username || "") });
     }
 
+    if (action === "getReviewNext") {
+      return json_(getReviewNext_(payload));
+    }
+
+    if (action === "recordReviewDecision") {
+      return json_(recordReviewDecision_(payload));
+    }
+
     throw new Error("Unsupported action: " + action);
   } catch (error) {
     return json_({ ok: false, error: error.message });
@@ -107,6 +118,7 @@ function ensureStructure_() {
   ensureSheet_(EXTENSION_LINK_SHEET, EXTENSION_HEADERS);
   ensureSheet_(EXPAND_LINK_SHEET, EXPAND_HEADERS);
   ensureSheet_(EXISTING_SHEET, EXPAND_HEADERS);
+  ensureSheet_(ADMIN_SHEET, ADMIN_HEADERS);
   cleanupExpandLinkTrash_();
 }
 
@@ -217,8 +229,226 @@ function findTikTokUrlInRow_(row) {
   return match || "";
 }
 
+function getReviewNext_(payload) {
+  const context = getReviewContext_(payload);
+  const rows = getReviewSourceRows_(context.sourceSheet, context.linkColumn);
+  const reviewed = getReviewedUrls_(context.reviewerSheet);
+  const next = rows.find(function(item) {
+    return item.url && !reviewed[normalizeTikTokUrl_(item.url)];
+  });
+
+  touchAdminAccount_(context.spreadsheet, context.reviewerEmail, context.reviewerSheetName);
+
+  return {
+    ok: true,
+    item: next || null,
+    total: rows.length,
+    reviewed: Object.keys(reviewed).length,
+    remaining: Math.max(0, rows.length - Object.keys(reviewed).length),
+    reviewerSheet: context.reviewerSheetName
+  };
+}
+
+function recordReviewDecision_(payload) {
+  const context = getReviewContext_(payload);
+  const decision = String(payload.decision || "").toUpperCase();
+  if (decision !== "APPROVED" && decision !== "REJECTED") {
+    throw new Error("Decision must be APPROVED or REJECTED.");
+  }
+
+  const url = String(payload.url || "").trim();
+  if (!url) throw new Error("Review URL is required.");
+
+  upsertReviewRow_(context.reviewerSheet, {
+    url: url,
+    decision: decision,
+    reviewedAt: Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyy-MM-dd HH:mm:ss"),
+    sourceRow: payload.sourceRow || "",
+    reviewerEmail: context.reviewerEmail,
+    notes: payload.notes || ""
+  });
+
+  touchAdminAccount_(context.spreadsheet, context.reviewerEmail, context.reviewerSheetName);
+  const next = getReviewNext_(payload);
+  return {
+    ok: true,
+    saved: true,
+    decision: decision,
+    next: next.item,
+    total: next.total,
+    reviewed: next.reviewed,
+    remaining: next.remaining,
+    reviewerSheet: context.reviewerSheetName
+  };
+}
+
+function getReviewContext_(payload) {
+  const spreadsheetId = parseSpreadsheetId_(payload.spreadsheetUrl || payload.sheetUrl || "");
+  const reviewerEmail = String(payload.reviewerEmail || "").trim().toLowerCase();
+  if (!spreadsheetId) throw new Error("Approval Google Sheet URL is required.");
+  if (!reviewerEmail) throw new Error("Google account email is required.");
+
+  const spreadsheet = SpreadsheetApp.openById(spreadsheetId);
+  const sourceSheet = getSourceSheet_(spreadsheet, payload.sourceSheetName || "", payload.spreadsheetUrl || payload.sheetUrl || "");
+  const reviewerSheetName = safeSheetName_(reviewerEmail);
+  const reviewerSheet = ensureSheetInSpreadsheet_(spreadsheet, reviewerSheetName, REVIEW_HEADERS);
+  ensureSheetInSpreadsheet_(spreadsheet, ADMIN_SHEET, ADMIN_HEADERS);
+
+  return {
+    spreadsheet: spreadsheet,
+    sourceSheet: sourceSheet,
+    linkColumn: String(payload.linkColumn || "A").trim(),
+    reviewerEmail: reviewerEmail,
+    reviewerSheetName: reviewerSheetName,
+    reviewerSheet: reviewerSheet
+  };
+}
+
+function getSourceSheet_(spreadsheet, sourceSheetName, spreadsheetUrl) {
+  if (sourceSheetName) {
+    const named = spreadsheet.getSheetByName(sourceSheetName);
+    if (!named) throw new Error("Source sheet tab not found: " + sourceSheetName);
+    return named;
+  }
+
+  const gid = String(spreadsheetUrl || "").match(/[?#&]gid=(\d+)/);
+  if (gid) {
+    const byGid = spreadsheet.getSheets().find(function(sheet) {
+      return String(sheet.getSheetId()) === gid[1];
+    });
+    if (byGid) return byGid;
+  }
+
+  return spreadsheet.getSheets().find(function(sheet) {
+    return sheet.getName() !== ADMIN_SHEET && !isReviewSheet_(sheet);
+  }) || spreadsheet.getSheets()[0];
+}
+
+function getReviewSourceRows_(sheet, linkColumn) {
+  const lastRow = sheet.getLastRow();
+  if (lastRow < 2) return [];
+
+  const columnIndex = resolveColumnIndex_(sheet, linkColumn);
+  const values = sheet.getRange(2, columnIndex, lastRow - 1, 1).getValues();
+  return values.map(function(row, index) {
+    return {
+      url: String(row[0] || "").trim(),
+      sourceRow: index + 2
+    };
+  }).filter(function(item) {
+    return item.url;
+  });
+}
+
+function resolveColumnIndex_(sheet, linkColumn) {
+  const value = String(linkColumn || "A").trim();
+  if (/^\d+$/.test(value)) return Number(value);
+  if (/^[A-Za-z]+$/.test(value)) return columnNameToIndex_(value);
+
+  const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+  const normalized = value.toLowerCase();
+  const index = headers.findIndex(function(header) {
+    return String(header || "").trim().toLowerCase() === normalized;
+  });
+  if (index === -1) throw new Error("Link column not found: " + value);
+  return index + 1;
+}
+
+function getReviewedUrls_(sheet) {
+  const reviewed = {};
+  const lastRow = sheet.getLastRow();
+  if (lastRow < 2) return reviewed;
+  const rows = sheet.getRange(2, 1, lastRow - 1, REVIEW_HEADERS.length).getValues();
+  rows.forEach(function(row) {
+    if (row[0]) reviewed[normalizeTikTokUrl_(row[0])] = true;
+  });
+  return reviewed;
+}
+
+function upsertReviewRow_(sheet, record) {
+  const normalizedUrl = normalizeTikTokUrl_(record.url);
+  const lastRow = sheet.getLastRow();
+  if (lastRow >= 2) {
+    const urls = sheet.getRange(2, 1, lastRow - 1, 1).getValues();
+    for (let index = 0; index < urls.length; index++) {
+      if (normalizeTikTokUrl_(urls[index][0]) === normalizedUrl) {
+        sheet.getRange(index + 2, 1, 1, REVIEW_HEADERS.length).setValues([reviewRow_(record)]);
+        return;
+      }
+    }
+  }
+  sheet.appendRow(reviewRow_(record));
+}
+
+function reviewRow_(record) {
+  return [record.url, record.decision, record.reviewedAt, record.sourceRow, record.reviewerEmail, record.notes];
+}
+
+function touchAdminAccount_(spreadsheet, email, sheetName) {
+  const sheet = ensureSheetInSpreadsheet_(spreadsheet, ADMIN_SHEET, ADMIN_HEADERS);
+  const now = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyy-MM-dd HH:mm:ss");
+  const lastRow = sheet.getLastRow();
+  if (lastRow >= 2) {
+    const rows = sheet.getRange(2, 1, lastRow - 1, ADMIN_HEADERS.length).getValues();
+    for (let index = 0; index < rows.length; index++) {
+      if (String(rows[index][0] || "").trim().toLowerCase() === email) {
+        sheet.getRange(index + 2, 1, 1, ADMIN_HEADERS.length).setValues([[email, sheetName, rows[index][2] || now, now]]);
+        return;
+      }
+    }
+  }
+  sheet.appendRow([email, sheetName, now, now]);
+}
+
+function ensureSheetInSpreadsheet_(spreadsheet, name, headers) {
+  let sheet = spreadsheet.getSheetByName(name);
+  if (!sheet) sheet = spreadsheet.insertSheet(name);
+  const headerRange = sheet.getRange(1, 1, 1, headers.length);
+  const current = headerRange.getValues()[0];
+  const matches = headers.every(function(header, index) {
+    return current[index] === header;
+  });
+  if (!matches) {
+    headerRange.setValues([headers]);
+    sheet.setFrozenRows(1);
+    sheet.autoResizeColumns(1, headers.length);
+  }
+  return sheet;
+}
+
+function parseSpreadsheetId_(value) {
+  const text = String(value || "").trim();
+  const match = text.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
+  if (match) return match[1];
+  return /^[a-zA-Z0-9-_]{20,}$/.test(text) ? text : "";
+}
+
+function safeSheetName_(value) {
+  return String(value || "reviewer").replace(/[\\/?*\[\]:]/g, "-").slice(0, 100);
+}
+
+function isReviewSheet_(sheet) {
+  const name = sheet.getName();
+  if (name === EXTENSION_LINK_SHEET || name === EXPAND_LINK_SHEET || name === EXISTING_SHEET) return true;
+  const headers = sheet.getRange(1, 1, 1, Math.min(REVIEW_HEADERS.length, sheet.getMaxColumns())).getValues()[0];
+  return REVIEW_HEADERS.every(function(header, index) {
+    return headers[index] === header;
+  });
+}
+
+function columnNameToIndex_(name) {
+  return String(name || "A").toUpperCase().split("").reduce(function(total, char) {
+    return total * 26 + char.charCodeAt(0) - 64;
+  }, 0);
+}
+
 function normalizeTikTokUrl_(value) {
-  return String(value || "").trim().replace(/\/$/, "").replace(/^http:\/\//, "https://").replace("https://tiktok.com/", "https://www.tiktok.com/");
+  return String(value || "")
+    .trim()
+    .split(/[?#]/)[0]
+    .replace(/\/$/, "")
+    .replace(/^http:\/\//, "https://")
+    .replace("https://tiktok.com/", "https://www.tiktok.com/");
 }
 
 function usernameFromTikTokUrl_(value) {

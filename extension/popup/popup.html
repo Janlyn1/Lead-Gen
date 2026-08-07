@@ -46,6 +46,35 @@
         <span>Compact Mode</span>
       </label>
 
+      <section class="settings-section">
+        <h2>Approval Review</h2>
+
+        <label class="toggle">
+          <input id="approvalMode" type="checkbox">
+          <span>Approval Mode</span>
+        </label>
+
+        <label>
+          Approval Google Sheet URL
+          <input id="approvalSheetUrl" type="url" placeholder="https://docs.google.com/spreadsheets/d/...">
+        </label>
+
+        <label>
+          Source tab name optional
+          <input id="approvalSourceSheet" type="text" placeholder="Leave blank to use URL gid / first tab">
+        </label>
+
+        <label>
+          Link column
+          <input id="approvalLinkColumn" type="text" placeholder="A or TikTok URL">
+        </label>
+
+        <label>
+          Google account / reviewer Gmail
+          <input id="reviewerEmail" type="email" placeholder="name@gmail.com">
+        </label>
+      </section>
+
       <button id="save">Save Settings</button>
       <p id="status" aria-live="polite"></p>
     </main>

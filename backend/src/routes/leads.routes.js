@@ -80,6 +80,33 @@ leadsRouter.get("/recent", async (req, res, next) => {
   }
 });
 
+leadsRouter.post("/review/next", async (req, res, next) => {
+  try {
+    res.json(await sheetsService.getReviewNext(req.body || {}));
+  } catch (error) {
+    next(error);
+  }
+});
+
+leadsRouter.post("/review/decision", async (req, res, next) => {
+  try {
+    const decision = String(req.body?.decision || "").toUpperCase();
+    if (decision !== "APPROVED" && decision !== "REJECTED") {
+      res.status(400).json({ error: "Decision must be APPROVED or REJECTED." });
+      return;
+    }
+
+    if (!req.body?.url) {
+      res.status(400).json({ error: "Review URL is required." });
+      return;
+    }
+
+    res.json(await sheetsService.recordReviewDecision({ ...req.body, decision }));
+  } catch (error) {
+    next(error);
+  }
+});
+
 leadsRouter.post("/worker/run", async (req, res, next) => {
   try {
     res.json(await leadProcessor.processPending());
