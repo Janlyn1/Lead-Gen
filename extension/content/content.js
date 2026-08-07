@@ -165,6 +165,10 @@ function bindEvents() {
   });
   loginReviewButton.addEventListener("click", () => loginReviewAccount());
   logoutReviewButton.addEventListener("click", () => logoutReviewAccount());
+  reviewerEmailInput.addEventListener("input", () => renderAccount());
+  approvalSheetUrlInput.addEventListener("input", () => renderAccount());
+  approvalLinkColumnInput.addEventListener("input", () => renderAccount());
+  approvalSourceSheetInput.addEventListener("input", () => renderAccount());
   reviewNextButton.addEventListener("click", () => openNextReviewLink());
   approveButton.addEventListener("click", () => recordReviewDecision("APPROVED"));
   rejectButton.addEventListener("click", () => {
@@ -858,7 +862,7 @@ function render() {
 function renderAccount() {
   syncApprovalInputs();
   root.querySelector(".js-reviewer").textContent = state.reviewLoggedIn ? state.settings.reviewerEmail || "Logged in" : "Logged out";
-  loginReviewButton.disabled = state.reviewBusy || !hasApprovalSettings();
+  loginReviewButton.disabled = state.reviewBusy || !canLoginFromInputs();
   logoutReviewButton.disabled = state.reviewBusy || !state.reviewLoggedIn;
   loginReviewButton.classList.toggle("hidden", state.reviewLoggedIn);
   logoutReviewButton.classList.toggle("hidden", !state.reviewLoggedIn);
@@ -866,6 +870,14 @@ function renderAccount() {
   const notice = root.querySelector(".js-review-notice");
   notice.textContent = state.reviewStatus;
   notice.className = `notice js-review-notice ${state.reviewKind}`;
+}
+
+function canLoginFromInputs() {
+  return Boolean(
+    reviewerEmailInput.value.trim() &&
+    (approvalSheetUrlInput.value.trim() || state.settings.approvalSheetUrl) &&
+    (approvalLinkColumnInput.value.trim() || state.settings.approvalLinkColumn || "D")
+  );
 }
 
 function renderApproval() {
